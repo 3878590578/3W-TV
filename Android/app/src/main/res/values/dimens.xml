@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- 页面基础间距 -->
+    <dimen name="spacing_xs">4dp</dimen>
+    <dimen name="spacing_sm">8dp</dimen>
+    <dimen name="spacing_md">12dp</dimen>
+    <dimen name="spacing_lg">16dp</dimen>
+    <dimen name="spacing_xl">20dp</dimen>
+    <dimen name="spacing_xxl">24dp</dimen>
+    <dimen name="spacing_huge">32dp</dimen>
+
+    <!-- 卡片 -->
+    <dimen name="card_radius">14dp</dimen>
+    <dimen name="card_radius_large">20dp</dimen>
+    <dimen name="card_padding">14dp</dimen>
+
+    <!-- 按钮 -->
+    <dimen name="button_height">48dp</dimen>
+    <dimen name="button_height_small">40dp</dimen>
+    <dimen name="button_radius">12dp</dimen>
+
+    <!-- 文字 -->
+    <dimen name="text_xs">11sp</dimen>
+    <dimen name="text_sm">13sp</dimen>
+    <dimen name="text_md">15sp</dimen>
+    <dimen name="text_lg">17sp</dimen>
+    <dimen name="text_xl">20sp</dimen>
+    <dimen name="text_xxl">24sp</dimen>
+    <dimen name="text_title">28sp</dimen>
+
+    <!-- 海报 -->
+    <dimen name="poster_width">120dp</dimen>
+    <dimen name="poster_height">170dp</dimen>
+    <dimen name="poster_radius">10dp</dimen>
+
+    <!-- 首页 -->
+    <dimen name="home_header_height">64dp</dimen>
+    <dimen name="bottom_navigation_height">64dp</dimen>
+
+    <!-- 播放器 -->
+    <dimen name="player_control_height">64dp</dimen>
+    <dimen name="player_button_size">44dp</dimen>
+    <dimen name="player_small_button_size">36dp</dimen>
+
+    <!-- 播放器顶部时间 -->
+    <dimen name="player_clock_text_size">16sp</dimen>
+    <dimen name="player_clock_margin">18dp</dimen>
+
+    <!-- 播放器左下角视频信息 -->
+    <dimen name="player_info_text_size">13sp</dimen>
+    <dimen name="player_info_margin">18dp</dimen>
+
+    <!-- 列表 -->
+    <dimen name="list_item_min_height">64dp</dimen>
+    <dimen name="list_divider_height">1dp</dimen>
+
+    <!-- TV 遥控器操作区域 -->
+    <dimen name="tv_focus_border">2dp</dimen>
+
+</resources>
