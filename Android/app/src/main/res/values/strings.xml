@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- 应用 -->
+    <string name="app_name">3W影视</string>
+    <string name="app_description">多源影视聚合播放器</string>
+
+    <!-- 首页 -->
+    <string name="home">首页</string>
+    <string name="search">搜索</string>
+    <string name="category">分类</string>
+    <string name="history">观看记录</string>
+    <string name="favorite">收藏</string>
+    <string name="download">下载</string>
+    <string name="local_video">本地视频</string>
+    <string name="settings">设置</string>
+
+    <!-- 视频 -->
+    <string name="play">播放</string>
+    <string name="pause">暂停</string>
+    <string name="resume">继续播放</string>
+    <string name="source">来源</string>
+    <string name="episode">选集</string>
+    <string name="episodes">剧集</string>
+    <string name="details">详情</string>
+    <string name="description">简介</string>
+    <string name="actor">演员</string>
+    <string name="director">导演</string>
+    <string name="year">年份</string>
+    <string name="area">地区</string>
+    <string name="type">类型</string>
+
+    <!-- 播放器 -->
+    <string name="player">播放器</string>
+    <string name="playback_speed">播放速度</string>
+    <string name="aspect_ratio">画面比例</string>
+    <string name="orientation">屏幕方向</string>
+    <string name="subtitle">字幕</string>
+    <string name="quality">清晰度</string>
+    <string name="previous_episode">上一集</string>
+    <string name="next_episode">下一集</string>
+    <string name="player_lock">锁定</string>
+    <string name="player_unlock">解锁</string>
+    <string name="fullscreen">全屏</string>
+
+    <!-- 播放速度 -->
+    <string name="speed_1x">1×</string>
+    <string name="speed_1_5x">1.5×</string>
+    <string name="speed_2x">2×</string>
+    <string name="speed_2_5x">2.5×</string>
+    <string name="speed_3x">3×</string>
+    <string name="speed_5x">5×</string>
+    <string name="speed_8x">8×</string>
+
+    <!-- 画面 -->
+    <string name="show_all">显示全部画面</string>
+    <string name="fill">填充</string>
+    <string name="crop">裁剪</string>
+    <string name="original_ratio">原始比例</string>
+    <string name="ratio_16_9">16:9</string>
+    <string name="ratio_4_3">4:3</string>
+
+    <!-- 方向 -->
+    <string name="orientation_auto">跟随设备</string>
+    <string name="orientation_portrait">竖屏</string>
+    <string name="orientation_landscape">横屏</string>
+
+    <!-- 播放设置 -->
+    <string name="intro_skip">片头跳过</string>
+    <string name="outro_skip">片尾跳过</string>
+    <string name="auto_next">自动播放下一集</string>
+    <string name="continue_playback">继续播放</string>
+
+    <!-- 数据 -->
+    <string name="loading">加载中…</string>
+    <string name="loading_failed">加载失败</string>
+    <string name="retry">重试</string>
+    <string name="unknown">未知</string>
+    <string name="no_data">暂无内容</string>
+    <string name="network_error">网络连接失败</string>
+
+    <!-- 来源 -->
+    <string name="video_sources">视频源</string>
+    <string name="subscription_sources">订阅源</string>
+    <string name="add_source">添加视频源</string>
+    <string name="add_subscription">添加订阅源</string>
+    <string name="test_source">测试接口</string>
+    <string name="enable_source">启用</string>
+    <string name="disable_source">停用</string>
+    <string name="default_source">默认视频源</string>
+    <string name="extract_sources">提取所有视频源</string>
+    <string name="import_file">导入文件</string>
+    <string name="export_sources">导出视频源</string>
+
+    <!-- 下载 -->
+    <string name="download_manager">下载管理</string>
+    <string name="download_start">开始下载</string>
+    <string name="download_pause">暂停下载</string>
+    <string name="download_resume">继续下载</string>
+    <string name="download_delete">删除下载</string>
+    <string name="download_retry">重新下载</string>
+    <string name="wifi_only">仅 Wi-Fi 下载</string>
+
+    <!-- 本地视频 -->
+    <string name="add_folder">添加文件夹</string>
+    <string name="remove_folder">移除文件夹</string>
+    <string name="local_folders">本地文件夹</string>
+
+    <!-- 界面 -->
+    <string name="interface_settings">界面设置</string>
+    <string name="interface_background">界面背景</string>
+    <string name="choose_background">选择背景图片</string>
+    <string name="reset_background">恢复默认背景</string>
+
+    <!-- 播放器信息 -->
+    <string name="show_clock">显示系统时间</string>
+    <string name="show_video_info">显示视频信息</string>
+    <string name="resolution">分辨率</string>
+    <string name="file_size">文件大小</string>
+
+</resources>
