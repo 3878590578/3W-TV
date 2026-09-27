@@ -555,4 +555,4 @@ public class EpisodeAdapter
                                 .density
         );
     }
-          }
+}
