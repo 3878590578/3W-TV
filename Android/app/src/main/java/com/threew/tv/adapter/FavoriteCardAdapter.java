@@ -18,17 +18,6 @@ import com.threew.tv.utils.ImageLoader;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 收藏卡片适配器。
- *
- * 用于“我的 / 收藏”页面。
- *
- * 显示：
- * - 视频海报
- * - 视频名称
- * - 来源
- * - 收藏时间
- */
 public class FavoriteCardAdapter
         extends RecyclerView.Adapter<FavoriteCardAdapter.ViewHolder> {
 
@@ -102,6 +91,7 @@ public class FavoriteCardAdapter
         }
 
         favorites.remove(position);
+
         notifyItemRemoved(position);
     }
 
@@ -189,4 +179,206 @@ public class FavoriteCardAdapter
                         1f
                 );
 
-        contentParams.left
+        contentParams.leftMargin = dp(13);
+
+        root.addView(
+                content,
+                contentParams
+        );
+
+        TextView title =
+                new TextView(context);
+
+        title.setTextSize(15);
+
+        title.setTypeface(
+                Typeface.DEFAULT,
+                Typeface.BOLD
+        );
+
+        title.setMaxLines(2);
+
+        title.setEllipsize(
+                android.text.TextUtils.TruncateAt.END
+        );
+
+        content.addView(
+                title,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+        );
+
+        TextView source =
+                new TextView(context);
+
+        source.setTextSize(12);
+        source.setAlpha(0.72f);
+        source.setSingleLine(true);
+
+        LinearLayout.LayoutParams sourceParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        sourceParams.topMargin = dp(5);
+
+        content.addView(
+                source,
+                sourceParams
+        );
+
+        TextView time =
+                new TextView(context);
+
+        time.setTextSize(10);
+        time.setAlpha(0.55f);
+        time.setSingleLine(true);
+
+        LinearLayout.LayoutParams timeParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        timeParams.topMargin = dp(4);
+
+        content.addView(
+                time,
+                timeParams
+        );
+
+        return new ViewHolder(
+                root,
+                poster,
+                title,
+                source,
+                time
+        );
+    }
+
+    @Override
+    public void onBindViewHolder(
+            @NonNull ViewHolder holder,
+            int position
+    ) {
+        Favorite favorite =
+                favorites.get(position);
+
+        String name =
+                favorite.getName();
+
+        if (name == null ||
+                name.trim().isEmpty()) {
+            name = "未命名视频";
+        }
+
+        holder.title.setText(name);
+
+        String poster =
+                favorite.getPoster();
+
+        if (poster != null &&
+                !poster.trim().isEmpty()) {
+
+            ImageLoader.load(
+                    context,
+                    poster,
+                    holder.poster
+            );
+
+        } else {
+            holder.poster.setImageDrawable(null);
+        }
+
+        String sourceName =
+                favorite.getSourceName();
+
+        if (sourceName == null ||
+                sourceName.trim().isEmpty()) {
+            sourceName = "默认来源";
+        }
+
+        holder.source.setText(
+                "来源："
+                        + sourceName
+        );
+
+        long createTime =
+                favorite.getCreateTime();
+
+        if (createTime > 0) {
+            holder.time.setText(
+                    formatTime(createTime)
+            );
+        } else {
+            holder.time.setText("");
+        }
+
+        holder.itemView.setOnClickListener(v -> {
+
+            int adapterPosition =
+                    holder.getBindingAdapterPosition();
+
+            if (adapterPosition ==
+                    RecyclerView.NO_POSITION) {
+                return;
+            }
+
+            if (listener != null) {
+                listener.onFavoriteClick(
+                        favorites.get(adapterPosition),
+                        adapterPosition
+                );
+            }
+        });
+    }
+
+    private String formatTime(long time) {
+        java.text.SimpleDateFormat format =
+                new java.text.SimpleDateFormat(
+                        "yyyy-MM-dd HH:mm",
+                        java.util.Locale.getDefault()
+                );
+
+        return format.format(
+                new java.util.Date(time)
+        );
+    }
+
+    private int dp(int value) {
+        return (int) (
+                value
+                        * context.getResources()
+                        .getDisplayMetrics()
+                        .density
+                        + 0.5f
+        );
+    }
+
+    public static class ViewHolder
+            extends RecyclerView.ViewHolder {
+
+        private final ImageView poster;
+        private final TextView title;
+        private final TextView source;
+        private final TextView time;
+
+        public ViewHolder(
+                @NonNull View itemView,
+                ImageView poster,
+                TextView title,
+                TextView source,
+                TextView time
+        ) {
+            super(itemView);
+
+            this.poster = poster;
+            this.title = title;
+            this.source = source;
+            this.time = time;
+        }
+    }
+}
