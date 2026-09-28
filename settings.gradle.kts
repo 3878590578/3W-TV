@@ -1,4 +1,3 @@
-代码:
 pluginManagement {
     repositories {
         google()
