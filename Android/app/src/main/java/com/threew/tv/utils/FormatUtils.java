@@ -2,49 +2,31 @@ package com.threew.tv.utils;
 
 import java.util.Locale;
 
-/**
- * 3W影视格式化工具。
- *
- * 用于：
- * - 时间格式
- * - 文件大小
- * - 播放速度
- * - 数字格式
- */
 public final class FormatUtils {
 
     private FormatUtils() {
     }
 
-    /**
-     * 将毫秒转换成播放器时间。
-     *
-     * 小于 1 小时：
-     *   01:23
-     *
-     * 大于等于 1 小时：
-     *   01:02:03
-     */
     public static String formatTime(
             long milliseconds
     ) {
-        if (milliseconds < 0) {
-            milliseconds = 0;
+        if (milliseconds < 0L) {
+            milliseconds = 0L;
         }
 
         long totalSeconds =
-                milliseconds / 1000;
+                milliseconds / 1000L;
 
         long hours =
-                totalSeconds / 3600;
+                totalSeconds / 3600L;
 
         long minutes =
-                (totalSeconds % 3600) / 60;
+                (totalSeconds % 3600L) / 60L;
 
         long seconds =
-                totalSeconds % 60;
+                totalSeconds % 60L;
 
-        if (hours > 0) {
+        if (hours > 0L) {
             return String.format(
                     Locale.getDefault(),
                     "%02d:%02d:%02d",
@@ -62,14 +44,11 @@ public final class FormatUtils {
         );
     }
 
-    /**
-     * 将秒转换成播放器时间。
-     */
     public static String formatSeconds(
             long seconds
     ) {
-        if (seconds < 0) {
-            seconds = 0;
+        if (seconds < 0L) {
+            seconds = 0L;
         }
 
         return formatTime(
@@ -77,18 +56,10 @@ public final class FormatUtils {
         );
     }
 
-    /**
-     * 文件大小。
-     *
-     * 按项目要求：
-     * - 小于 1000 MB：显示 MB
-     * - 1000 MB = 1G
-     * - 大于 1000 MB：显示 G，并保留合理小数
-     */
     public static String formatFileSize(
             long bytes
     ) {
-        if (bytes <= 0) {
+        if (bytes <= 0L) {
             return "未知";
         }
 
@@ -96,7 +67,8 @@ public final class FormatUtils {
                 bytes / 1000.0 / 1000.0;
 
         if (megabytes < 1000.0) {
-            if (megabytes < 10) {
+
+            if (megabytes < 10.0) {
                 return String.format(
                         Locale.getDefault(),
                         "%.1f MB",
@@ -114,7 +86,7 @@ public final class FormatUtils {
         double gigabytes =
                 megabytes / 1000.0;
 
-        if (gigabytes < 10) {
+        if (gigabytes < 10.0) {
             return String.format(
                     Locale.getDefault(),
                     "%.2f G",
@@ -122,7 +94,7 @@ public final class FormatUtils {
             );
         }
 
-        if (gigabytes < 100) {
+        if (gigabytes < 100.0) {
             return String.format(
                     Locale.getDefault(),
                     "%.1f G",
@@ -137,27 +109,21 @@ public final class FormatUtils {
         );
     }
 
-    /**
-     * 更适合下载列表的文件大小。
-     */
     public static String formatDownloadSize(
             long bytes
     ) {
-        if (bytes <= 0) {
+        if (bytes <= 0L) {
             return "0 MB";
         }
 
         return formatFileSize(bytes);
     }
 
-    /**
-     * 格式化下载进度。
-     */
     public static String formatProgress(
             long downloadedBytes,
             long totalBytes
     ) {
-        if (totalBytes <= 0) {
+        if (totalBytes <= 0L) {
             return formatFileSize(
                     downloadedBytes
             );
@@ -165,9 +131,9 @@ public final class FormatUtils {
 
         int percent =
                 (int) Math.round(
-                        downloadedBytes
-                                * 100.0
-                                / totalBytes
+                        downloadedBytes *
+                                100.0 /
+                                totalBytes
                 );
 
         percent = Math.max(
@@ -181,13 +147,10 @@ public final class FormatUtils {
         return percent + "%";
     }
 
-    /**
-     * 播放速度显示。
-     */
     public static String formatSpeed(
             float speed
     ) {
-        if (speed <= 0) {
+        if (speed <= 0f) {
             speed = 1.0f;
         }
 
@@ -234,17 +197,14 @@ public final class FormatUtils {
         );
     }
 
-    /**
-     * 格式化普通数字。
-     */
     public static String formatNumber(
             long value
     ) {
-        if (value < 0) {
-            value = 0;
+        if (value < 0L) {
+            value = 0L;
         }
 
-        if (value >= 100000000) {
+        if (value >= 100000000L) {
             return String.format(
                     Locale.getDefault(),
                     "%.1f亿",
@@ -252,7 +212,7 @@ public final class FormatUtils {
             );
         }
 
-        if (value >= 10000) {
+        if (value >= 10000L) {
             return String.format(
                     Locale.getDefault(),
                     "%.1f万",
@@ -263,21 +223,21 @@ public final class FormatUtils {
         return String.valueOf(value);
     }
 
-    /**
-     * 百分比。
-     */
     public static String formatPercent(
             float value
     ) {
         value = Math.max(
-                0,
+                0f,
                 Math.min(
-                        100,
+                        100f,
                         value
                 )
         );
 
-        if (Math.abs(value - Math.round(value)) < 0.001f) {
+        if (Math.abs(
+                value - Math.round(value)
+        ) < 0.001f) {
+
             return String.format(
                     Locale.getDefault(),
                     "%d%%",
@@ -292,9 +252,6 @@ public final class FormatUtils {
         );
     }
 
-    /**
-     * 将播放位置转换成“已播放 / 总时长”。
-     */
     public static String formatProgressTime(
             long positionMs,
             long durationMs
@@ -304,9 +261,6 @@ public final class FormatUtils {
                 + formatTime(durationMs);
     }
 
-    /**
-     * 安全限制整数范围。
-     */
     public static int clamp(
             int value,
             int min,
@@ -321,9 +275,6 @@ public final class FormatUtils {
         );
     }
 
-    /**
-     * 安全限制 long 范围。
-     */
     public static long clamp(
             long value,
             long min,
@@ -338,9 +289,6 @@ public final class FormatUtils {
         );
     }
 
-    /**
-     * 安全限制 float 范围。
-     */
     public static float clamp(
             float value,
             float min,
@@ -352,6 +300,36 @@ public final class FormatUtils {
                         max,
                         value
                 )
+        );
+    }
+
+    public static long clampPercent(
+            long value
+    ) {
+        return clamp(
+                value,
+                0L,
+                100L
+        );
+    }
+
+    public static int clampPercent(
+            int value
+    ) {
+        return clamp(
+                value,
+                0,
+                100
+        );
+    }
+
+    public static float clampPercent(
+            float value
+    ) {
+        return clamp(
+                value,
+                0f,
+                100f
         );
     }
 }
