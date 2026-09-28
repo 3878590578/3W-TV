@@ -3,24 +3,6 @@ package com.threew.tv.settings;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-/**
- * 应用级设置。
- *
- * 负责保存：
- * - 默认播放速度
- * - 长按临时倍速
- * - 自动连播
- * - 自动跳过片头
- * - 自动跳过片尾
- * - 播放画面模式
- * - 屏幕方向
- * - 播放器时钟
- * - 视频信息
- * - 应用背景
- * - 下载/播放相关基础选项
- *
- * 播放器自己的实时状态不放这里。
- */
 public class AppSettings {
 
     private static final String PREF_NAME =
@@ -82,25 +64,15 @@ public class AppSettings {
 
     private final SharedPreferences preferences;
 
-    public AppSettings(
-            Context context
-    ) {
-        Context appContext =
-                context.getApplicationContext();
-
+    public AppSettings(Context context) {
         preferences =
-                appContext.getSharedPreferences(
-                        PREF_NAME,
-                        Context.MODE_PRIVATE
-                );
+                context.getApplicationContext()
+                        .getSharedPreferences(
+                                PREF_NAME,
+                                Context.MODE_PRIVATE
+                        );
     }
 
-    /**
-     * 默认播放速度。
-     *
-     * 支持：
-     * 1 / 1.5 / 2 / 2.5 / 3 / 5 / 8
-     */
     public float getGlobalSpeed() {
         return normalizeSpeed(
                 preferences.getFloat(
@@ -110,9 +82,7 @@ public class AppSettings {
         );
     }
 
-    public void setGlobalSpeed(
-            float speed
-    ) {
+    public void setGlobalSpeed(float speed) {
         preferences.edit()
                 .putFloat(
                         KEY_GLOBAL_SPEED,
@@ -121,40 +91,24 @@ public class AppSettings {
                 .apply();
     }
 
-    /**
-     * 长按临时倍速。
-     *
-     * 支持：
-     * 2 / 3 / 5 / 8
-     */
     public float getLongPressSpeed() {
-        float speed =
+        return normalizeLongPressSpeed(
                 preferences.getFloat(
                         KEY_LONG_PRESS_SPEED,
                         2.0f
-                );
-
-        return normalizeLongPressSpeed(
-                speed
+                )
         );
     }
 
-    public void setLongPressSpeed(
-            float speed
-    ) {
+    public void setLongPressSpeed(float speed) {
         preferences.edit()
                 .putFloat(
                         KEY_LONG_PRESS_SPEED,
-                        normalizeLongPressSpeed(
-                                speed
-                        )
+                        normalizeLongPressSpeed(speed)
                 )
                 .apply();
     }
 
-    /**
-     * 自动连播。
-     */
     public boolean isAutoNext() {
         return preferences.getBoolean(
                 KEY_AUTO_NEXT,
@@ -162,9 +116,7 @@ public class AppSettings {
         );
     }
 
-    public void setAutoNext(
-            boolean enabled
-    ) {
+    public void setAutoNext(boolean enabled) {
         preferences.edit()
                 .putBoolean(
                         KEY_AUTO_NEXT,
@@ -173,9 +125,6 @@ public class AppSettings {
                 .apply();
     }
 
-    /**
-     * 自动跳过片头。
-     */
     public boolean isAutoSkipIntro() {
         return preferences.getBoolean(
                 KEY_AUTO_SKIP_INTRO,
@@ -183,9 +132,7 @@ public class AppSettings {
         );
     }
 
-    public void setAutoSkipIntro(
-            boolean enabled
-    ) {
+    public void setAutoSkipIntro(boolean enabled) {
         preferences.edit()
                 .putBoolean(
                         KEY_AUTO_SKIP_INTRO,
@@ -194,9 +141,6 @@ public class AppSettings {
                 .apply();
     }
 
-    /**
-     * 自动跳过片尾。
-     */
     public boolean isAutoSkipOutro() {
         return preferences.getBoolean(
                 KEY_AUTO_SKIP_OUTRO,
@@ -204,9 +148,7 @@ public class AppSettings {
         );
     }
 
-    public void setAutoSkipOutro(
-            boolean enabled
-    ) {
+    public void setAutoSkipOutro(boolean enabled) {
         preferences.edit()
                 .putBoolean(
                         KEY_AUTO_SKIP_OUTRO,
@@ -215,16 +157,6 @@ public class AppSettings {
                 .apply();
     }
 
-    /**
-     * 画面显示模式。
-     *
-     * fit    = 显示全部画面
-     * fill   = 拉伸填充
-     * crop   = 裁剪填充
-     * original = 原始比例
-     * 16:9
-     * 4:3
-     */
     public String getDisplayMode() {
         return normalizeDisplayMode(
                 preferences.getString(
@@ -234,9 +166,7 @@ public class AppSettings {
         );
     }
 
-    public void setDisplayMode(
-            String mode
-    ) {
+    public void setDisplayMode(String mode) {
         preferences.edit()
                 .putString(
                         KEY_DISPLAY_MODE,
@@ -245,13 +175,6 @@ public class AppSettings {
                 .apply();
     }
 
-    /**
-     * 屏幕方向。
-     *
-     * auto
-     * portrait
-     * landscape
-     */
     public String getOrientationMode() {
         return normalizeOrientationMode(
                 preferences.getString(
@@ -261,9 +184,7 @@ public class AppSettings {
         );
     }
 
-    public void setOrientationMode(
-            String mode
-    ) {
+    public void setOrientationMode(String mode) {
         preferences.edit()
                 .putString(
                         KEY_ORIENTATION_MODE,
@@ -272,9 +193,6 @@ public class AppSettings {
                 .apply();
     }
 
-    /**
-     * 播放器右上角时钟。
-     */
     public boolean isClockEnabled() {
         return preferences.getBoolean(
                 KEY_CLOCK_ENABLED,
@@ -282,9 +200,7 @@ public class AppSettings {
         );
     }
 
-    public void setClockEnabled(
-            boolean enabled
-    ) {
+    public void setClockEnabled(boolean enabled) {
         preferences.edit()
                 .putBoolean(
                         KEY_CLOCK_ENABLED,
@@ -293,9 +209,6 @@ public class AppSettings {
                 .apply();
     }
 
-    /**
-     * 时钟字号。
-     */
     public int getClockSize() {
         return clamp(
                 preferences.getInt(
@@ -307,29 +220,15 @@ public class AppSettings {
         );
     }
 
-    public void setClockSize(
-            int size
-    ) {
+    public void setClockSize(int size) {
         preferences.edit()
                 .putInt(
                         KEY_CLOCK_SIZE,
-                        clamp(
-                                size,
-                                10,
-                                40
-                        )
+                        clamp(size, 10, 40)
                 )
                 .apply();
     }
 
-    /**
-     * 时钟位置。
-     *
-     * top_left
-     * top_right
-     * bottom_left
-     * bottom_right
-     */
     public String getClockPosition() {
         return normalizePosition(
                 preferences.getString(
@@ -340,9 +239,7 @@ public class AppSettings {
         );
     }
 
-    public void setClockPosition(
-            String position
-    ) {
+    public void setClockPosition(String position) {
         preferences.edit()
                 .putString(
                         KEY_CLOCK_POSITION,
@@ -354,13 +251,6 @@ public class AppSettings {
                 .apply();
     }
 
-    /**
-     * 视频信息显示。
-     *
-     * 播放器控制栏显示：
-     * 分辨率
-     * 文件大小
-     */
     public boolean isInfoEnabled() {
         return preferences.getBoolean(
                 KEY_INFO_ENABLED,
@@ -368,9 +258,7 @@ public class AppSettings {
         );
     }
 
-    public void setInfoEnabled(
-            boolean enabled
-    ) {
+    public void setInfoEnabled(boolean enabled) {
         preferences.edit()
                 .putBoolean(
                         KEY_INFO_ENABLED,
@@ -379,9 +267,6 @@ public class AppSettings {
                 .apply();
     }
 
-    /**
-     * 视频信息字号。
-     */
     public int getInfoSize() {
         return clamp(
                 preferences.getInt(
@@ -393,24 +278,15 @@ public class AppSettings {
         );
     }
 
-    public void setInfoSize(
-            int size
-    ) {
+    public void setInfoSize(int size) {
         preferences.edit()
                 .putInt(
                         KEY_INFO_SIZE,
-                        clamp(
-                                size,
-                                9,
-                                32
-                        )
+                        clamp(size, 9, 32)
                 )
                 .apply();
     }
 
-    /**
-     * 视频信息位置。
-     */
     public String getInfoPosition() {
         return normalizePosition(
                 preferences.getString(
@@ -421,9 +297,7 @@ public class AppSettings {
         );
     }
 
-    public void setInfoPosition(
-            String position
-    ) {
+    public void setInfoPosition(String position) {
         preferences.edit()
                 .putString(
                         KEY_INFO_POSITION,
@@ -435,12 +309,6 @@ public class AppSettings {
                 .apply();
     }
 
-    /**
-     * 自定义应用界面背景。
-     *
-     * 只影响普通页面。
-     * 播放器不会使用该背景。
-     */
     public String getBackgroundUri() {
         return preferences.getString(
                 KEY_BACKGROUND_URI,
@@ -448,30 +316,21 @@ public class AppSettings {
         );
     }
 
-    public void setBackgroundUri(
-            String uri
-    ) {
+    public void setBackgroundUri(String uri) {
         preferences.edit()
                 .putString(
                         KEY_BACKGROUND_URI,
-                        uri == null
-                                ? ""
-                                : uri
+                        uri == null ? "" : uri
                 )
                 .apply();
     }
 
     public void clearBackgroundUri() {
         preferences.edit()
-                .remove(
-                        KEY_BACKGROUND_URI
-                )
+                .remove(KEY_BACKGROUND_URI)
                 .apply();
     }
 
-    /**
-     * 下载是否仅使用 Wi-Fi。
-     */
     public boolean isWifiOnly() {
         return preferences.getBoolean(
                 KEY_WIFI_ONLY,
@@ -479,9 +338,7 @@ public class AppSettings {
         );
     }
 
-    public void setWifiOnly(
-            boolean enabled
-    ) {
+    public void setWifiOnly(boolean enabled) {
         preferences.edit()
                 .putBoolean(
                         KEY_WIFI_ONLY,
@@ -490,11 +347,6 @@ public class AppSettings {
                 .apply();
     }
 
-    /**
-     * 下载并发数。
-     *
-     * 2 / 4 / 6 / 8
-     */
     public int getDownloadConcurrency() {
         return normalizeConcurrency(
                 preferences.getInt(
@@ -517,11 +369,6 @@ public class AppSettings {
                 .apply();
     }
 
-    /**
-     * 播放缓存目标时长。
-     *
-     * 默认 10 分钟。
-     */
     public int getCacheTargetMinutes() {
         return clamp(
                 preferences.getInt(
@@ -539,20 +386,11 @@ public class AppSettings {
         preferences.edit()
                 .putInt(
                         KEY_CACHE_TARGET_MINUTES,
-                        clamp(
-                                minutes,
-                                10,
-                                120
-                        )
+                        clamp(minutes, 10, 120)
                 )
                 .apply();
     }
 
-    /**
-     * 播放缓存目标大小。
-     *
-     * 默认 100 MB。
-     */
     public int getCacheTargetMb() {
         return clamp(
                 preferences.getInt(
@@ -564,33 +402,26 @@ public class AppSettings {
         );
     }
 
-    public void setCacheTargetMb(
-            int mb
-    ) {
+    public void setCacheTargetMb(int mb) {
         preferences.edit()
                 .putInt(
                         KEY_CACHE_TARGET_MB,
-                        clamp(
-                                mb,
-                                100,
-                                2048
-                        )
+                        clamp(mb, 100, 2048)
                 )
                 .apply();
     }
 
-    /**
-     * 恢复所有应用默认设置。
-     */
     public void resetDefaults() {
         preferences.edit()
                 .clear()
                 .apply();
     }
 
-    private float normalizeSpeed(
-            float speed
-    ) {
+    public void reset() {
+        resetDefaults();
+    }
+
+    private float normalizeSpeed(float speed) {
         if (speed == 1.0f ||
                 speed == 1.5f ||
                 speed == 2.0f ||
@@ -620,9 +451,7 @@ public class AppSettings {
     private String normalizeDisplayMode(
             String mode
     ) {
-        if (mode == null) {
-            return "fit";
-        }
+        if (mode == null) return "fit";
 
         switch (mode) {
             case "fit":
@@ -632,7 +461,6 @@ public class AppSettings {
             case "16:9":
             case "4:3":
                 return mode;
-
             default:
                 return "fit";
         }
@@ -641,16 +469,13 @@ public class AppSettings {
     private String normalizeOrientationMode(
             String mode
     ) {
-        if (mode == null) {
-            return "auto";
-        }
+        if (mode == null) return "auto";
 
         switch (mode) {
             case "auto":
             case "portrait":
             case "landscape":
                 return mode;
-
             default:
                 return "auto";
         }
@@ -660,9 +485,7 @@ public class AppSettings {
             String position,
             String fallback
     ) {
-        if (position == null) {
-            return fallback;
-        }
+        if (position == null) return fallback;
 
         switch (position) {
             case "top_left":
@@ -670,7 +493,6 @@ public class AppSettings {
             case "bottom_left":
             case "bottom_right":
                 return position;
-
             default:
                 return fallback;
         }
@@ -685,7 +507,6 @@ public class AppSettings {
             case 6:
             case 8:
                 return concurrency;
-
             default:
                 return 2;
         }
@@ -698,10 +519,7 @@ public class AppSettings {
     ) {
         return Math.max(
                 min,
-                Math.min(
-                        max,
-                        value
-                )
+                Math.min(max, value)
         );
     }
 }
