@@ -1,12 +1,8 @@
 package com.threew.tv.player;
 
+import androidx.media3.common.C;
 import androidx.media3.common.Player;
 
-/**
- * 播放器播放状态
- *
- * 只负责保存当前播放器状态，不直接控制播放器。
- */
 public class PlayerPlaybackState {
 
     public static final int STATE_IDLE = Player.STATE_IDLE;
@@ -17,7 +13,6 @@ public class PlayerPlaybackState {
     private int playbackState = STATE_IDLE;
     private boolean playing;
     private boolean playWhenReady;
-
     private long positionMs;
     private long durationMs;
 
@@ -33,7 +28,6 @@ public class PlayerPlaybackState {
         playbackState = player.getPlaybackState();
         playing = player.isPlaying();
         playWhenReady = player.getPlayWhenReady();
-
         positionMs = normalize(player.getCurrentPosition());
         durationMs = normalize(player.getDuration());
     }
@@ -42,20 +36,20 @@ public class PlayerPlaybackState {
         playbackState = state;
     }
 
-    public void setPlaying(boolean playing) {
-        this.playing = playing;
+    public void setPlaying(boolean value) {
+        playing = value;
     }
 
-    public void setPlayWhenReady(boolean playWhenReady) {
-        this.playWhenReady = playWhenReady;
+    public void setPlayWhenReady(boolean value) {
+        playWhenReady = value;
     }
 
-    public void setPositionMs(long positionMs) {
-        this.positionMs = Math.max(0L, positionMs);
+    public void setPositionMs(long value) {
+        positionMs = Math.max(0L, value);
     }
 
-    public void setDurationMs(long durationMs) {
-        this.durationMs = Math.max(0L, durationMs);
+    public void setDurationMs(long value) {
+        durationMs = Math.max(0L, value);
     }
 
     public int getPlaybackState() {
@@ -95,25 +89,17 @@ public class PlayerPlaybackState {
     }
 
     public long getRemainingMs() {
-        if (durationMs <= 0L) {
-            return 0L;
-        }
-
-        return Math.max(
-                0L,
-                durationMs - positionMs
-        );
+        if (durationMs <= 0L) return 0L;
+        return Math.max(0L, durationMs - positionMs);
     }
 
     public float getProgress() {
-        if (durationMs <= 0L) {
-            return 0f;
-        }
+        if (durationMs <= 0L) return 0f;
 
-        return Math.min(
-                1f,
-                Math.max(
-                        0f,
+        return Math.max(
+                0f,
+                Math.min(
+                        1f,
                         positionMs / (float) durationMs
                 )
         );
@@ -124,38 +110,31 @@ public class PlayerPlaybackState {
     }
 
     public boolean isStarted() {
-        return positionMs > 0L
-                || playing
-                || playWhenReady;
+        return positionMs > 0L ||
+                playing ||
+                playWhenReady;
     }
 
     public boolean isNearEnd() {
-        if (durationMs <= 0L) {
-            return false;
-        }
-
-        return durationMs - positionMs <= 3000L;
+        return durationMs > 0L &&
+                durationMs - positionMs <= 3000L;
     }
 
     public boolean isFinished() {
-        return playbackState == STATE_ENDED
-                || isNearEnd();
+        return playbackState == STATE_ENDED ||
+                isNearEnd();
     }
 
     public String getStateName() {
         switch (playbackState) {
             case STATE_IDLE:
                 return "空闲";
-
             case STATE_BUFFERING:
                 return "缓冲中";
-
             case STATE_READY:
                 return playing ? "播放中" : "已暂停";
-
             case STATE_ENDED:
                 return "播放结束";
-
             default:
                 return "未知";
         }
@@ -170,10 +149,7 @@ public class PlayerPlaybackState {
     }
 
     private long normalize(long value) {
-        if (value == Player.TIME_UNSET) {
-            return 0L;
-        }
-
+        if (value == C.TIME_UNSET) return 0L;
         return Math.max(0L, value);
     }
 
