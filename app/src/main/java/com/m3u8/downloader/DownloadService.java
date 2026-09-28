@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat;
 
 import java.io.File;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -26,6 +27,18 @@ public class DownloadService extends Service {
     public static final String ACTION_STOP =
             "com.m3u8.downloader.STOP";
 
+    public static final String ACTION_RESET =
+            "com.m3u8.downloader.RESET";
+
+    public static final String ACTION_TASK =
+            "com.m3u8.downloader.TASK";
+
+    public static final String ACTION_ALL_DONE =
+            "com.m3u8.downloader.ALL_DONE";
+
+    public static final String ACTION_STOPPED =
+            "com.m3u8.downloader.STOPPED";
+
     public static final String EXTRA_INPUT =
             "input";
 
@@ -34,6 +47,27 @@ public class DownloadService extends Service {
 
     public static final String EXTRA_THREADS =
             "threads";
+
+    public static final String EXTRA_TASK_ID =
+            "task_id";
+
+    public static final String EXTRA_NAME =
+            "name";
+
+    public static final String EXTRA_STATUS =
+            "status";
+
+    public static final String EXTRA_PERCENT =
+            "percent";
+
+    public static final String EXTRA_SPEED =
+            "speed";
+
+    public static final String EXTRA_MESSAGE =
+            "message";
+
+    public static final String EXTRA_COMPLETED =
+            "completed";
 
     private static final String CHANNEL_ID =
             "m3u8_download";
@@ -44,11 +78,14 @@ public class DownloadService extends Service {
     private ExecutorService episodeExecutor;
     private ExecutorService segmentExecutor;
 
-    private volatile boolean stopped = false;
+    private volatile boolean stopped =
+            false;
 
     @Override
     public void onCreate() {
+
         super.onCreate();
+
         createNotificationChannel();
     }
 
@@ -68,6 +105,7 @@ public class DownloadService extends Service {
         )) {
 
             stopDownloads();
+
             return START_NOT_STICKY;
         }
 
@@ -109,6 +147,7 @@ public class DownloadService extends Service {
     ) {
 
         stopExecutorsOnly();
+
         stopped = false;
 
         maxEpisodes =
@@ -130,7 +169,9 @@ public class DownloadService extends Service {
                 );
 
         List<M3U8Item> items =
-                M3U8Parser.parseInput(input);
+                M3U8Parser.parseInput(
+                        input
+                );
 
         if (items.isEmpty()) {
 
@@ -140,8 +181,22 @@ public class DownloadService extends Service {
             );
 
             stopSelf();
+
             return;
         }
+
+        if (items.size() > 16) {
+
+            items =
+                    items.subList(
+                            0,
+                            16
+                    );
+        }
+
+        sendSimpleBroadcast(
+                ACTION_RESET
+        );
 
         startForeground(
                 NOTIFICATION_ID,
@@ -172,11 +227,30 @@ public class DownloadService extends Service {
         AtomicInteger finished =
                 new AtomicInteger(0);
 
-        for (M3U8Item item : items) {
+        for (int i = 0;
+             i < items.size();
+             i++) {
 
-            if (stopped) {
-                break;
-            }
+            M3U8Item item =
+                    items.get(i);
+
+            final int taskIndex =
+                    i;
+
+            final String taskId =
+                    String.valueOf(
+                            taskIndex
+                    );
+
+            sendTask(
+                    taskId,
+                    item.getName(),
+                    "WAITING",
+                    0,
+                    0,
+                    "等待下载...",
+                    false
+            );
 
             episodeExecutor.execute(
                     () -> {
@@ -184,6 +258,19 @@ public class DownloadService extends Service {
                         if (stopped) {
                             return;
                         }
+
+                        long startTime =
+                                System.currentTimeMillis();
+
+                        sendTask(
+                                taskId,
+                                item.getName(),
+                                "RUNNING",
+                                0,
+                                0,
+                                "正在解析 M3U8...",
+                                false
+                        );
 
                         M3U8Downloader downloader =
                                 new M3U8Downloader(
@@ -203,9 +290,25 @@ public class DownloadService extends Service {
                                             String message
                                     ) {
 
+                                        double speed =
+                                                calculateSpeed(
+                                                        item,
+                                                        startTime
+                                                );
+
+                                        sendTask(
+                                                taskId,
+                                                item.getName(),
+                                                "RUNNING",
+                                                percent,
+                                                speed,
+                                                message,
+                                                false
+                                        );
+
                                         showNotification(
                                                 item.getName()
-                                                        + "  "
+                                                        + " "
                                                         + percent
                                                         + "%",
                                                 true
@@ -219,6 +322,16 @@ public class DownloadService extends Service {
 
                                         int count =
                                                 finished.incrementAndGet();
+
+                                        sendTask(
+                                                taskId,
+                                                item.getName(),
+                                                "COMPLETED",
+                                                100,
+                                                0,
+                                                "下载完成",
+                                                true
+                                        );
 
                                         showNotification(
                                                 "完成 "
@@ -242,6 +355,16 @@ public class DownloadService extends Service {
                                         int count =
                                                 finished.incrementAndGet();
 
+                                        sendTask(
+                                                taskId,
+                                                item.getName(),
+                                                "FAILED",
+                                                0,
+                                                0,
+                                                message,
+                                                false
+                                        );
+
                                         showNotification(
                                                 item.getName()
                                                         + "："
@@ -261,6 +384,165 @@ public class DownloadService extends Service {
         }
     }
 
+    private double calculateSpeed(
+            M3U8Item item,
+            long startTime
+    ) {
+
+        long now =
+                System.currentTimeMillis();
+
+        long elapsed =
+                now - startTime;
+
+        if (elapsed <= 0) {
+            return 0;
+        }
+
+        File directory =
+                new File(
+                        FileUtils.getTempDirectory(
+                                getApplicationContext()
+                        ),
+                        String.valueOf(
+                                Math.abs(
+                                        (
+                                                item.getUrl()
+                                                        + item.getName()
+                                        ).hashCode()
+                                )
+                        )
+                );
+
+        long bytes =
+                calculateDirectorySize(
+                        directory
+                );
+
+        double seconds =
+                elapsed / 1000.0;
+
+        double megabytes =
+                bytes / 1024.0 / 1024.0;
+
+        return megabytes / seconds;
+    }
+
+    private long calculateDirectorySize(
+            File directory
+    ) {
+
+        if (directory == null
+                || !directory.exists()) {
+
+            return 0;
+        }
+
+        File[] files =
+                directory.listFiles();
+
+        if (files == null) {
+            return 0;
+        }
+
+        long total = 0;
+
+        for (File file : files) {
+
+            if (file.isDirectory()) {
+
+                total +=
+                        calculateDirectorySize(
+                                file
+                        );
+
+            } else {
+
+                total +=
+                        file.length();
+            }
+        }
+
+        return total;
+    }
+
+    private void sendTask(
+            String taskId,
+            String name,
+            String status,
+            int percent,
+            double speed,
+            String message,
+            boolean completed
+    ) {
+
+        Intent intent =
+                new Intent(
+                        ACTION_TASK
+                );
+
+        intent.setPackage(
+                getPackageName()
+        );
+
+        intent.putExtra(
+                EXTRA_TASK_ID,
+                taskId
+        );
+
+        intent.putExtra(
+                EXTRA_NAME,
+                name
+        );
+
+        intent.putExtra(
+                EXTRA_STATUS,
+                status
+        );
+
+        intent.putExtra(
+                EXTRA_PERCENT,
+                percent
+        );
+
+        intent.putExtra(
+                EXTRA_SPEED,
+                speed
+        );
+
+        intent.putExtra(
+                EXTRA_MESSAGE,
+                message
+        );
+
+        intent.putExtra(
+                EXTRA_COMPLETED,
+                completed
+        );
+
+        sendBroadcast(
+                intent
+        );
+    }
+
+    private void sendSimpleBroadcast(
+            String action
+    ) {
+
+        Intent intent =
+                new Intent(
+                        action
+                );
+
+        intent.setPackage(
+                getPackageName()
+        );
+
+        sendBroadcast(
+                intent
+        );
+    }
+
     private void finishIfDone(
             int finished,
             int total
@@ -278,9 +560,14 @@ public class DownloadService extends Service {
                 false
         );
 
+        sendSimpleBroadcast(
+                ACTION_ALL_DONE
+        );
+
         stopExecutorsOnly();
 
         stopForeground(false);
+
         stopSelf();
     }
 
@@ -290,19 +577,28 @@ public class DownloadService extends Service {
 
         stopExecutorsOnly();
 
+        sendSimpleBroadcast(
+                ACTION_STOPPED
+        );
+
         stopForeground(true);
+
         stopSelf();
     }
 
     private void stopExecutorsOnly() {
 
         if (episodeExecutor != null) {
+
             episodeExecutor.shutdownNow();
+
             episodeExecutor = null;
         }
 
         if (segmentExecutor != null) {
+
             segmentExecutor.shutdownNow();
+
             segmentExecutor = null;
         }
     }
@@ -332,17 +628,24 @@ public class DownloadService extends Service {
                 CHANNEL_ID
         )
                 .setSmallIcon(
-                        android.R.drawable.stat_sys_download
+                        android.R.drawable
+                                .stat_sys_download
                 )
                 .setContentTitle(
                         "M3U8下载器"
                 )
-                .setContentText(text)
+                .setContentText(
+                        text
+                )
                 .setContentIntent(
                         pendingIntent
                 )
-                .setOnlyAlertOnce(true)
-                .setOngoing(ongoing)
+                .setOnlyAlertOnce(
+                        true
+                )
+                .setOngoing(
+                        ongoing
+                )
                 .build();
     }
 
@@ -372,6 +675,7 @@ public class DownloadService extends Service {
                     .PERMISSION_GRANTED) {
 
                 if (ongoing) {
+
                     startForeground(
                             NOTIFICATION_ID,
                             notification
@@ -388,6 +692,7 @@ public class DownloadService extends Service {
         );
 
         if (ongoing) {
+
             startForeground(
                     NOTIFICATION_ID,
                     notification
@@ -405,7 +710,8 @@ public class DownloadService extends Service {
                 new NotificationChannel(
                         CHANNEL_ID,
                         "M3U8下载",
-                        NotificationManager.IMPORTANCE_LOW
+                        NotificationManager
+                                .IMPORTANCE_LOW
                 );
 
         channel.setDescription(
@@ -437,6 +743,7 @@ public class DownloadService extends Service {
     public IBinder onBind(
             Intent intent
     ) {
+
         return null;
     }
 }
