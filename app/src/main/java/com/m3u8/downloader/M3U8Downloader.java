@@ -20,7 +20,10 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
@@ -29,8 +32,16 @@ import javax.crypto.spec.SecretKeySpec;
 public class M3U8Downloader {
 
     public interface Listener {
-        void onProgress(int percent, String message);
+
+        void onProgress(
+                int percent,
+                String message,
+                double speed,
+                int activeThreads
+        );
+
         void onFinished(File file);
+
         void onFailed(String message);
     }
 
@@ -40,39 +51,66 @@ public class M3U8Downloader {
     private final String playlistUrl;
     private final String fileName;
     private final int threadCount;
-    private final ExecutorService segmentExecutor;
 
     private volatile boolean cancelled = false;
+
+    private ExecutorService segmentExecutor;
+
+    private final AtomicInteger activeThreads =
+            new AtomicInteger(0);
+
+    private final AtomicLong downloadedBytes =
+            new AtomicLong(0);
+
+    private volatile long speedStartTime;
 
     public M3U8Downloader(
             Context context,
             String playlistUrl,
             String fileName,
-            int threadCount,
-            ExecutorService segmentExecutor
+            int threadCount
     ) {
-        this.context = context.getApplicationContext();
+
+        this.context =
+                context.getApplicationContext();
+
         this.playlistUrl = playlistUrl;
         this.fileName = fileName;
-        this.threadCount = Math.min(
-                32,
-                Math.max(1, threadCount)
-        );
-        this.segmentExecutor = segmentExecutor;
+
+        this.threadCount =
+                Math.min(
+                        32,
+                        Math.max(
+                                1,
+                                threadCount
+                        )
+                );
     }
 
     public void cancel() {
         cancelled = true;
+
+        ExecutorService executor =
+                segmentExecutor;
+
+        if (executor != null) {
+            executor.shutdownNow();
+        }
     }
 
-    public void download(Listener listener) {
+    public void download(
+            Listener listener
+    ) {
 
         File workDirectory = null;
 
         try {
+
             listener.onProgress(
                     0,
-                    "正在解析 M3U8..."
+                    "正在解析 M3U8...",
+                    0,
+                    0
             );
 
             Playlist playlist =
@@ -89,17 +127,22 @@ public class M3U8Downloader {
 
             workDirectory =
                     new File(
-                            FileUtils.getTempDirectory(context),
+                            FileUtils.getTempDirectory(
+                                    context
+                            ),
                             String.valueOf(
                                     Math.abs(
-                                            (playlistUrl + fileName)
-                                                    .hashCode()
+                                            (
+                                                    playlistUrl
+                                                            + fileName
+                                            ).hashCode()
                                     )
                             )
                     );
 
             if (!workDirectory.exists()
                     && !workDirectory.mkdirs()) {
+
                 throw new IOException(
                         "无法创建临时目录"
                 );
@@ -107,6 +150,11 @@ public class M3U8Downloader {
 
             int total =
                     playlist.segments.size();
+
+            segmentExecutor =
+                    Executors.newFixedThreadPool(
+                            threadCount
+                    );
 
             ExecutorCompletionService<Integer>
                     completion =
@@ -119,13 +167,11 @@ public class M3U8Downloader {
 
             int existing = 0;
 
-            for (int i = 0; i < total; i++) {
+            for (int i = 0;
+                 i < total;
+                 i++) {
 
-                if (cancelled) {
-                    throw new IOException(
-                            "任务已停止"
-                    );
-                }
+                checkCancelled();
 
                 File part =
                         partFile(
@@ -135,6 +181,7 @@ public class M3U8Downloader {
 
                 if (part.exists()
                         && part.length() > 0) {
+
                     existing++;
                     continue;
                 }
@@ -144,18 +191,28 @@ public class M3U8Downloader {
                 futures.add(
                         completion.submit(
                                 new Callable<Integer>() {
+
                                     @Override
                                     public Integer call()
                                             throws Exception {
 
-                                        downloadOneSegment(
-                                                playlist.segments
-                                                        .get(index),
-                                                part,
-                                                index
-                                        );
+                                        activeThreads.incrementAndGet();
 
-                                        return index;
+                                        try {
+
+                                            downloadOneSegment(
+                                                    playlist.segments
+                                                            .get(index),
+                                                    part,
+                                                    index
+                                            );
+
+                                            return index;
+
+                                        } finally {
+
+                                            activeThreads.decrementAndGet();
+                                        }
                                     }
                                 }
                         )
@@ -164,29 +221,30 @@ public class M3U8Downloader {
 
             int finished = existing;
 
+            speedStartTime =
+                    System.currentTimeMillis();
+
+            downloadedBytes.set(0);
+
             listener.onProgress(
-                    percent(finished, total),
+                    percent(
+                            finished,
+                            total
+                    ),
                     "已存在 "
                             + finished
                             + " / "
                             + total
-                            + " 个分片"
+                            + " 个分片",
+                    0,
+                    activeThreads.get()
             );
 
             for (int i = 0;
                  i < futures.size();
                  i++) {
 
-                if (cancelled) {
-                    for (Future<Integer> future :
-                            futures) {
-                        future.cancel(true);
-                    }
-
-                    throw new IOException(
-                            "任务已停止"
-                    );
-                }
+                checkCancelled();
 
                 Future<Integer> future =
                         completion.take();
@@ -196,17 +254,28 @@ public class M3U8Downloader {
                 finished++;
 
                 listener.onProgress(
-                        percent(finished, total),
+                        percent(
+                                finished,
+                                total
+                        ),
                         "下载分片 "
                                 + finished
                                 + " / "
-                                + total
+                                + total,
+                        calculateSpeed(),
+                        activeThreads.get()
                 );
+            }
+
+            if (segmentExecutor != null) {
+                segmentExecutor.shutdown();
             }
 
             listener.onProgress(
                     99,
-                    "正在合并..."
+                    "正在合并...",
+                    0,
+                    0
             );
 
             File output =
@@ -221,13 +290,17 @@ public class M3U8Downloader {
                     output
             );
 
+            checkCancelled();
+
             FileUtils.publishVideo(
                     context,
                     output,
                     fileName
             );
 
-            deleteDirectory(workDirectory);
+            deleteDirectory(
+                    workDirectory
+            );
 
             if (output.exists()) {
                 output.delete();
@@ -235,20 +308,60 @@ public class M3U8Downloader {
 
             listener.onProgress(
                     100,
-                    "下载完成"
+                    "下载完成",
+                    0,
+                    0
             );
 
-            listener.onFinished(output);
+            listener.onFinished(
+                    output
+            );
 
         } catch (Exception e) {
+
+            if (segmentExecutor != null) {
+                segmentExecutor.shutdownNow();
+            }
 
             listener.onFailed(
                     e.getMessage() == null
                             ? "下载失败"
                             : e.getMessage()
             );
-
         }
+    }
+
+    private void checkCancelled()
+            throws IOException {
+
+        if (cancelled
+                || Thread.currentThread().isInterrupted()) {
+
+            throw new IOException(
+                    "任务已暂停"
+            );
+        }
+    }
+
+    private double calculateSpeed() {
+
+        long now =
+                System.currentTimeMillis();
+
+        long elapsed =
+                now - speedStartTime;
+
+        if (elapsed <= 0) {
+            return 0;
+        }
+
+        double megabytes =
+                downloadedBytes.get()
+                        / 1024.0
+                        / 1024.0;
+
+        return megabytes
+                / (elapsed / 1000.0);
     }
 
     private Playlist loadPlaylist(
@@ -266,7 +379,10 @@ public class M3U8Downloader {
                 requestText(url);
 
         String[] lines =
-                text.replace("\r", "")
+                text.replace(
+                                "\r",
+                                ""
+                        )
                         .split("\n");
 
         boolean master = false;
@@ -283,12 +399,10 @@ public class M3U8Downloader {
 
         boolean expectVariantUrl = false;
 
-        for (int i = 0;
-             i < lines.length;
-             i++) {
+        for (String rawLine : lines) {
 
             String line =
-                    lines[i].trim();
+                    rawLine.trim();
 
             if (line.isEmpty()) {
                 continue;
@@ -297,6 +411,7 @@ public class M3U8Downloader {
             if (line.startsWith(
                     "#EXT-X-STREAM-INF"
             )) {
+
                 master = true;
                 expectVariantUrl = true;
 
@@ -365,8 +480,11 @@ public class M3U8Downloader {
                         );
 
                 if (mapUri != null) {
+
                     mapUri =
-                            stripQuotes(mapUri);
+                            stripQuotes(
+                                    mapUri
+                            );
 
                     initSegment =
                             new InitSegment(
@@ -410,6 +528,7 @@ public class M3U8Downloader {
                 if (best == null
                         || variant.bandwidth
                         > best.bandwidth) {
+
                     best = variant;
                 }
             }
@@ -445,13 +564,19 @@ public class M3U8Downloader {
                 );
 
         if (method == null
-                || "NONE".equalsIgnoreCase(method)) {
+                || "NONE".equalsIgnoreCase(
+                method
+        )) {
             return null;
         }
 
-        if (!"AES-128".equalsIgnoreCase(method)) {
+        if (!"AES-128".equalsIgnoreCase(
+                method
+        )) {
+
             throw new IOException(
-                    "暂不支持加密方式：" + method
+                    "暂不支持加密方式："
+                            + method
             );
         }
 
@@ -468,7 +593,9 @@ public class M3U8Downloader {
         }
 
         keyUri =
-                stripQuotes(keyUri);
+                stripQuotes(
+                        keyUri
+                );
 
         keyUri =
                 M3U8Parser.resolveUrl(
@@ -497,6 +624,7 @@ public class M3U8Downloader {
 
         if (value == null
                 || value.trim().isEmpty()) {
+
             return null;
         }
 
@@ -505,10 +633,13 @@ public class M3U8Downloader {
 
         if (hex.startsWith("0x")
                 || hex.startsWith("0X")) {
-            hex = hex.substring(2);
+
+            hex =
+                    hex.substring(2);
         }
 
         if ((hex.length() & 1) != 0) {
+
             throw new IOException(
                     "无效的 IV"
             );
@@ -518,7 +649,9 @@ public class M3U8Downloader {
                 new byte[16];
 
         byte[] source =
-                new byte[hex.length() / 2];
+                new byte[
+                        hex.length() / 2
+                ];
 
         for (int i = 0;
              i < source.length;
@@ -534,24 +667,18 @@ public class M3U8Downloader {
                     );
         }
 
-        int start =
-                Math.max(
-                        0,
-                        16 - source.length
+        int copyLength =
+                Math.min(
+                        16,
+                        source.length
                 );
 
         System.arraycopy(
                 source,
-                Math.max(
-                        0,
-                        source.length - 16
-                ),
+                source.length - copyLength,
                 result,
-                start,
-                Math.min(
-                        16,
-                        source.length
-                )
+                16 - copyLength,
+                copyLength
         );
 
         return result;
@@ -569,11 +696,7 @@ public class M3U8Downloader {
              attempt <= MAX_RETRY;
              attempt++) {
 
-            if (cancelled) {
-                throw new IOException(
-                        "任务已停止"
-                );
-            }
+            checkCancelled();
 
             File temp =
                     new File(
@@ -593,8 +716,7 @@ public class M3U8Downloader {
 
                     byte[] key =
                             requestBytes(
-                                    segment.encryption
-                                            .keyUrl
+                                    segment.encryption.keyUrl
                             );
 
                     data =
@@ -602,7 +724,7 @@ public class M3U8Downloader {
                                     data,
                                     key,
                                     segment.encryption.iv,
-                                    index
+                                    segment.sequence
                             );
                 }
 
@@ -614,14 +736,22 @@ public class M3U8Downloader {
                                         )
                                 )
                 ) {
+
                     out.write(data);
                 }
+
+                downloadedBytes.addAndGet(
+                        data.length
+                );
 
                 if (target.exists()) {
                     target.delete();
                 }
 
-                if (!temp.renameTo(target)) {
+                if (!temp.renameTo(
+                        target
+                )) {
+
                     throw new IOException(
                             "保存分片失败"
                     );
@@ -638,16 +768,22 @@ public class M3U8Downloader {
                 }
 
                 if (attempt < MAX_RETRY) {
+
                     try {
+
                         Thread.sleep(
                                 500L * attempt
                         );
-                    } catch (InterruptedException ex) {
+
+                    } catch (
+                            InterruptedException ex
+                    ) {
+
                         Thread.currentThread()
                                 .interrupt();
 
                         throw new IOException(
-                                "下载被中断"
+                                "任务已暂停"
                         );
                     }
                 }
@@ -655,7 +791,9 @@ public class M3U8Downloader {
         }
 
         throw last == null
-                ? new IOException("分片下载失败")
+                ? new IOException(
+                "分片下载失败"
+        )
                 : last;
     }
 
@@ -667,25 +805,32 @@ public class M3U8Downloader {
     ) throws GeneralSecurityException {
 
         if (key.length != 16) {
+
             throw new GeneralSecurityException(
                     "AES-128 KEY 长度错误"
             );
         }
 
-        byte[] actualIv =
-                iv;
+        byte[] actualIv = iv;
 
         if (actualIv == null) {
+
             actualIv =
                     new byte[16];
 
-            long value = sequence;
+            long value =
+                    sequence;
 
             for (int i = 15;
                  i >= 8;
                  i--) {
+
                 actualIv[i] =
-                        (byte) (value & 0xff);
+                        (byte) (
+                                value
+                                        & 0xff
+                        );
+
                 value >>>= 8;
             }
         }
@@ -706,7 +851,9 @@ public class M3U8Downloader {
                 )
         );
 
-        return cipher.doFinal(encrypted);
+        return cipher.doFinal(
+                encrypted
+        );
     }
 
     private void merge(
@@ -735,17 +882,15 @@ public class M3U8Downloader {
             }
 
             byte[] buffer =
-                    new byte[1024 * 1024];
+                    new byte[
+                            1024 * 1024
+                    ];
 
             for (int i = 0;
                  i < playlist.segments.size();
                  i++) {
 
-                if (cancelled) {
-                    throw new IOException(
-                            "任务已停止"
-                    );
-                }
+                checkCancelled();
 
                 File part =
                         partFile(
@@ -754,8 +899,10 @@ public class M3U8Downloader {
                         );
 
                 if (!part.exists()) {
+
                     throw new IOException(
-                            "缺少分片：" + (i + 1)
+                            "缺少分片："
+                                    + (i + 1)
                     );
                 }
 
@@ -771,7 +918,11 @@ public class M3U8Downloader {
                     int count;
 
                     while ((count =
-                            in.read(buffer)) != -1) {
+                            in.read(buffer))
+                            != -1) {
+
+                        checkCancelled();
+
                         out.write(
                                 buffer,
                                 0,
@@ -787,6 +938,7 @@ public class M3U8Downloader {
             File directory,
             int index
     ) {
+
         return new File(
                 directory,
                 String.format(
@@ -814,12 +966,25 @@ public class M3U8Downloader {
     ) throws IOException {
 
         HttpURLConnection connection =
-                openConnection(urlString);
+                openConnection(
+                        urlString
+                );
 
-        connection.setRequestMethod("GET");
-        connection.setConnectTimeout(15000);
-        connection.setReadTimeout(60000);
-        connection.setInstanceFollowRedirects(true);
+        connection.setRequestMethod(
+                "GET"
+        );
+
+        connection.setConnectTimeout(
+                15000
+        );
+
+        connection.setReadTimeout(
+                60000
+        );
+
+        connection.setInstanceFollowRedirects(
+                true
+        );
 
         connection.setRequestProperty(
                 "User-Agent",
@@ -829,11 +994,14 @@ public class M3U8Downloader {
         int code =
                 connection.getResponseCode();
 
-        if (code < 200 || code >= 300) {
+        if (code < 200
+                || code >= 300) {
+
             connection.disconnect();
 
             throw new IOException(
-                    "HTTP错误：" + code
+                    "HTTP错误："
+                            + code
             );
         }
 
@@ -842,23 +1010,23 @@ public class M3U8Downloader {
                         new BufferedInputStream(
                                 connection.getInputStream()
                         );
+
                 ByteArrayOutputStream output =
                         new ByteArrayOutputStream()
         ) {
 
             byte[] buffer =
-                    new byte[64 * 1024];
+                    new byte[
+                            64 * 1024
+                    ];
 
             int count;
 
             while ((count =
-                    input.read(buffer)) != -1) {
+                    input.read(buffer))
+                    != -1) {
 
-                if (cancelled) {
-                    throw new IOException(
-                            "任务已停止"
-                    );
-                }
+                checkCancelled();
 
                 output.write(
                         buffer,
@@ -870,6 +1038,7 @@ public class M3U8Downloader {
             return output.toByteArray();
 
         } finally {
+
             connection.disconnect();
         }
     }
@@ -968,7 +1137,8 @@ public class M3U8Downloader {
             return null;
         }
 
-        value = value.trim();
+        value =
+                value.trim();
 
         if (value.length() >= 2
                 && value.startsWith("\"")
@@ -989,6 +1159,7 @@ public class M3U8Downloader {
     ) {
 
         try {
+
             String value =
                     parseAttribute(
                             line,
@@ -997,9 +1168,12 @@ public class M3U8Downloader {
 
             return value == null
                     ? 0
-                    : Integer.parseInt(value);
+                    : Integer.parseInt(
+                    value
+            );
 
         } catch (Exception e) {
+
             return 0;
         }
     }
@@ -1007,6 +1181,12 @@ public class M3U8Downloader {
     private void deleteDirectory(
             File directory
     ) {
+
+        if (directory == null
+                || !directory.exists()) {
+
+            return;
+        }
 
         File[] files =
                 directory.listFiles();
@@ -1016,8 +1196,13 @@ public class M3U8Downloader {
             for (File file : files) {
 
                 if (file.isDirectory()) {
-                    deleteDirectory(file);
+
+                    deleteDirectory(
+                            file
+                    );
+
                 } else {
+
                     file.delete();
                 }
             }
@@ -1037,6 +1222,7 @@ public class M3U8Downloader {
                 List<Segment> segments,
                 InitSegment initSegment
         ) {
+
             this.url = url;
             this.segments = segments;
             this.initSegment = initSegment;
@@ -1054,6 +1240,7 @@ public class M3U8Downloader {
                 Encryption encryption,
                 int sequence
         ) {
+
             this.url = url;
             this.encryption = encryption;
             this.sequence = sequence;
@@ -1069,6 +1256,7 @@ public class M3U8Downloader {
                 String keyUrl,
                 byte[] iv
         ) {
+
             this.keyUrl = keyUrl;
             this.iv = iv;
         }
@@ -1078,7 +1266,10 @@ public class M3U8Downloader {
 
         final String url;
 
-        InitSegment(String url) {
+        InitSegment(
+                String url
+        ) {
+
             this.url = url;
         }
     }
@@ -1092,6 +1283,7 @@ public class M3U8Downloader {
                 String url,
                 int bandwidth
         ) {
+
             this.url = url;
             this.bandwidth = bandwidth;
         }
