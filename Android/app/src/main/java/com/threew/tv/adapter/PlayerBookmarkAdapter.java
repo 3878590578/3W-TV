@@ -15,11 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * 播放器书签适配器。
- *
- * 用于播放器中保存和管理用户标记的时间点。
- */
 public class PlayerBookmarkAdapter
         extends RecyclerView.Adapter<PlayerBookmarkAdapter.ViewHolder> {
 
@@ -206,7 +201,9 @@ public class PlayerBookmarkAdapter
                 android.widget.LinearLayout.HORIZONTAL
         );
 
-        layout.setGravity(Gravity.CENTER_VERTICAL);
+        layout.setGravity(
+                Gravity.CENTER_VERTICAL
+        );
 
         layout.setPadding(
                 dp(14),
@@ -245,8 +242,7 @@ public class PlayerBookmarkAdapter
         title.setGravity(Gravity.CENTER_VERTICAL);
         title.setSingleLine(true);
 
-        android.widget.LinearLayout.LayoutParams
-                titleParams =
+        android.widget.LinearLayout.LayoutParams titleParams =
                 new android.widget.LinearLayout.LayoutParams(
                         0,
                         ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -255,7 +251,10 @@ public class PlayerBookmarkAdapter
 
         titleParams.leftMargin = dp(9);
 
-        layout.addView(title, titleParams);
+        layout.addView(
+                title,
+                titleParams
+        );
 
         TextView mark = new TextView(context);
         mark.setId(android.R.id.icon);
@@ -291,7 +290,9 @@ public class PlayerBookmarkAdapter
         private final TextView title;
         private final TextView mark;
 
-        public ViewHolder(@NonNull View itemView) {
+        public ViewHolder(
+                @NonNull View itemView
+        ) {
             super(itemView);
 
             time = itemView.findViewById(
@@ -327,6 +328,7 @@ public class PlayerBookmarkAdapter
             background.setCornerRadius(dp(12));
 
             if (!item.isEnabled()) {
+
                 background.setColor(
                         Color.rgb(29, 32, 37)
                 );
@@ -346,6 +348,7 @@ public class PlayerBookmarkAdapter
                 itemView.setAlpha(0.6f);
 
             } else {
+
                 background.setColor(
                         Color.rgb(30, 35, 43)
                 );
@@ -372,9 +375,12 @@ public class PlayerBookmarkAdapter
             long totalSeconds =
                     Math.max(0L, milliseconds) / 1000L;
 
-            long hours = totalSeconds / 3600L;
+            long hours =
+                    totalSeconds / 3600L;
+
             long minutes =
                     (totalSeconds % 3600L) / 60L;
+
             long seconds =
                     totalSeconds % 60L;
 
@@ -406,4 +412,4 @@ public class PlayerBookmarkAdapter
             );
         }
     }
-}```
+}
