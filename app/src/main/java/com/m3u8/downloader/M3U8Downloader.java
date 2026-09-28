@@ -12,9 +12,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorCompletionService;
@@ -171,6 +169,15 @@ public class M3U8Downloader
                 );
             }
 
+            /*
+             * Lambda 中不能直接引用后续可能被重新赋值的
+             * workDirectory。
+             *
+             * 到这里目录已经确定，因此建立一个 final 引用。
+             */
+            final File finalWorkDirectory =
+                    workDirectory;
+
             totalBytes =
                     playlist.estimatedSize();
 
@@ -216,7 +223,7 @@ public class M3U8Downloader
 
                 File part =
                         partFile(
-                                workDirectory,
+                                finalWorkDirectory,
                                 i
                         );
 
@@ -241,7 +248,7 @@ public class M3U8Downloader
                                             playlist
                                                     .segments
                                                     .get(index),
-                                            workDirectory,
+                                            finalWorkDirectory,
                                             index,
                                             listener,
                                             total
@@ -298,13 +305,13 @@ public class M3U8Downloader
 
             File output =
                     new File(
-                            workDirectory,
+                            finalWorkDirectory,
                             "output.tmp"
                     );
 
             merge(
                     playlist,
-                    workDirectory,
+                    finalWorkDirectory,
                     output
             );
 
@@ -314,7 +321,7 @@ public class M3U8Downloader
             )) {
 
                 deleteDirectory(
-                        workDirectory
+                        finalWorkDirectory
                 );
 
                 listener.onFinished(
@@ -331,7 +338,7 @@ public class M3U8Downloader
             );
 
             deleteDirectory(
-                    workDirectory
+                    finalWorkDirectory
             );
 
             listener.onProgress(
