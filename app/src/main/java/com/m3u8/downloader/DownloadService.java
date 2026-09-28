@@ -109,7 +109,6 @@ public class DownloadService extends Service {
     ) {
 
         stopExecutorsOnly();
-
         stopped = false;
 
         maxEpisodes =
@@ -167,6 +166,9 @@ public class DownloadService extends Service {
         final int total =
                 items.size();
 
+        final int finalThreads =
+                threads;
+
         AtomicInteger finished =
                 new AtomicInteger(0);
 
@@ -188,7 +190,7 @@ public class DownloadService extends Service {
                                         getApplicationContext(),
                                         item.getUrl(),
                                         item.getName(),
-                                        threads,
+                                        finalThreads,
                                         segmentExecutor
                                 );
 
