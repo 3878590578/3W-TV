@@ -1,45 +1,62 @@
 package com.threew.tv.player;
 
 import android.content.Context;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.View;
 
-import androidx.annotation.NonNull;
-import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
-import androidx.media3.common.PlaybackParameters;
-import androidx.media3.common.VideoSize;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
-import androidx.media3.datasource.DefaultHttpDataSource;
 
 import com.threew.tv.model.Episode;
 import com.threew.tv.model.Video;
-import com.threew.tv.utils.NetworkUtils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-@UnstableApi
 public class PlayerController {
 
     public interface Listener {
-        void onPrepared();
-        void onPlayStateChanged(boolean playing);
-        void onProgress(long positionMs, long durationMs);
-        void onEpisodeChanged(Episode episode, int index);
-        void onCompleted();
-        void onBuffering(boolean buffering);
-        void onError(String message, PlaybackException exception);
-        void onSpeedChanged(float speed);
-        void onRetry(int retryCount);
-        void onVideoSizeChanged(int width, int height);
-        void onPositionChanged(long positionMs);
+
+        default void onEpisodeChanged(
+                Episode episode,
+                int index
+        ) {
+        }
+
+        default void onPrepared() {
+        }
+
+        default void onPlayingChanged(
+                boolean playing
+        ) {
+        }
+
+        default void onPositionChanged(
+                long positionMs
+        ) {
+        }
+
+        default void onSpeedChanged(
+                float speed
+        ) {
+        }
+
+        default void onCompleted() {
+        }
+
+        default void onRetry(
+                int retryCount
+        ) {
+        }
+
+        default void onError(
+                String message,
+                PlaybackException exception
+        ) {
+        }
     }
 
     private final Context context;
@@ -49,34 +66,19 @@ public class PlayerController {
     private ExoPlayer player;
     private Listener listener;
 
-    private Video currentVideo;
+    private Video video;
     private final List<Episode> episodes =
             new ArrayList<>();
 
     private int currentEpisodeIndex = -1;
+
     private float currentSpeed = 1.0f;
-
     private boolean autoNext = true;
-    private boolean prepared = false;
-    private boolean released = false;
+    private boolean prepared;
+    private boolean released;
 
-    private int retryCount = 0;
+    private int retryCount;
     private int maxRetryCount = 3;
-    private long lastReportedPosition = -1L;
-
-    private final Runnable progressRunnable =
-            new Runnable() {
-                @Override
-                public void run() {
-                    if (player != null && !released) {
-                        reportProgress();
-                        mainHandler.postDelayed(
-                                this,
-                                500L
-                        );
-                    }
-                }
-            };
 
     private final Player.Listener playerListener =
             new Player.Listener() {
@@ -85,30 +87,21 @@ public class PlayerController {
                 public void onPlaybackStateChanged(
                         int playbackState
                 ) {
-                    if (released) return;
+                    if (released) {
+                        return;
+                    }
 
                     if (playbackState ==
                             Player.STATE_READY) {
-
                         prepared = true;
 
                         if (listener != null) {
                             listener.onPrepared();
-                            listener.onBuffering(false);
-                        }
-                    }
-
-                    if (playbackState ==
-                            Player.STATE_BUFFERING) {
-
-                        if (listener != null) {
-                            listener.onBuffering(true);
                         }
                     }
 
                     if (playbackState ==
                             Player.STATE_ENDED) {
-
                         handleEpisodeCompleted();
                     }
                 }
@@ -118,7 +111,7 @@ public class PlayerController {
                         boolean isPlaying
                 ) {
                     if (listener != null) {
-                        listener.onPlayStateChanged(
+                        listener.onPlayingChanged(
                                 isPlaying
                         );
                     }
@@ -126,115 +119,97 @@ public class PlayerController {
 
                 @Override
                 public void onPlayerError(
-                        @NonNull PlaybackException error
+                        PlaybackException error
                 ) {
                     handlePlaybackError(error);
                 }
 
                 @Override
-                public void onPlaybackParametersChanged(
-                        @NonNull PlaybackParameters parameters
-                ) {
-                    currentSpeed = parameters.speed;
-
-                    if (listener != null) {
-                        listener.onSpeedChanged(
-                                currentSpeed
-                        );
-                    }
-                }
-
-                @Override
-                public void onVideoSizeChanged(
-                        @NonNull VideoSize videoSize
-                ) {
-                    if (listener != null) {
-                        listener.onVideoSizeChanged(
-                                videoSize.width,
-                                videoSize.height
-                        );
-                    }
-                }
-
-                @Override
                 public void onPositionDiscontinuity(
-                        @NonNull Player.PositionInfo oldPosition,
-                        @NonNull Player.PositionInfo newPosition,
+                        Player.PositionInfo oldPosition,
+                        Player.PositionInfo newPosition,
                         int reason
                 ) {
                     if (listener != null) {
                         listener.onPositionChanged(
-                                newPosition.positionMs
+                                getCurrentPosition()
                         );
                     }
                 }
             };
 
     public PlayerController(
-            @NonNull Context context
+            Context context
     ) {
         this.context =
                 context.getApplicationContext();
 
-        createPlayer();
+        player =
+                new ExoPlayer.Builder(
+                        this.context
+                ).build();
+
+        player.addListener(
+                playerListener
+        );
     }
 
-    public void setListener(Listener listener) {
+    public PlayerController(
+            Context context,
+            Listener listener
+    ) {
+        this(context);
         this.listener = listener;
     }
 
-    private void createPlayer() {
-        DefaultHttpDataSource.Factory httpFactory =
-                new DefaultHttpDataSource.Factory()
-                        .setConnectTimeoutMs(10_000)
-                        .setReadTimeoutMs(20_000)
-                        .setAllowCrossProtocolRedirects(true);
+    public void setListener(
+            Listener listener
+    ) {
+        this.listener = listener;
+    }
 
-        DefaultMediaSourceFactory mediaSourceFactory =
-                new DefaultMediaSourceFactory(
-                        httpFactory
-                );
-
-        player =
-                new ExoPlayer.Builder(context)
-                        .setMediaSourceFactory(
-                                mediaSourceFactory
-                        )
-                        .build();
-
-        player.addListener(playerListener);
-
-        mainHandler.post(progressRunnable);
+    public Listener getListener() {
+        return listener;
     }
 
     public ExoPlayer getPlayer() {
         return player;
     }
 
-    public void setVideo(Video video) {
-        if (video == null) return;
+    public void setVideo(
+            Video video
+    ) {
+        this.video = video;
+    }
 
-        currentVideo = video;
+    public Video getVideo() {
+        return video;
+    }
 
+    public void setEpisodes(
+            List<Episode> list
+    ) {
         episodes.clear();
 
-        if (video.getEpisodes() != null) {
-            episodes.addAll(
-                    video.getEpisodes()
-            );
+        if (list != null) {
+            for (Episode episode : list) {
+                if (episode != null) {
+                    episodes.add(episode);
+                }
+            }
         }
 
         currentEpisodeIndex = -1;
-        retryCount = 0;
-        prepared = false;
-    }
-
-    public Video getCurrentVideo() {
-        return currentVideo;
     }
 
     public List<Episode> getEpisodes() {
-        return new ArrayList<>(episodes);
+        return Collections.unmodifiableList(
+                episodes
+        );
+    }
+
+    public int getCurrentEpisodeIndex() {
+        return currentEpisodeIndex;
     }
 
     public Episode getCurrentEpisode() {
@@ -248,113 +223,83 @@ public class PlayerController {
         );
     }
 
-    public int getCurrentEpisodeIndex() {
-        return currentEpisodeIndex;
-    }
-
-    public boolean hasNextEpisode() {
-        return currentEpisodeIndex >= 0 &&
-                currentEpisodeIndex + 1 <
-                        episodes.size();
-    }
-
-    public boolean hasPreviousEpisode() {
-        return currentEpisodeIndex > 0 &&
-                currentEpisodeIndex <
-                        episodes.size();
-    }
-
-    public void playEpisode(int index) {
-        if (released) return;
-
-        if (index < 0 ||
+    public void playEpisode(
+            int index
+    ) {
+        if (released ||
+                player == null ||
+                index < 0 ||
                 index >= episodes.size()) {
             return;
         }
 
-        Episode episode = episodes.get(index);
+        Episode episode =
+                episodes.get(index);
 
-        if (episode == null ||
-                episode.getPlayUrl() == null ||
-                episode.getPlayUrl()
-                        .trim()
-                        .isEmpty()) {
+        if (episode == null) {
+            return;
+        }
 
+        String url =
+                episode.getPlayUrl();
+
+        if (url == null ||
+                url.trim().isEmpty()) {
             if (listener != null) {
                 listener.onError(
-                        "当前集没有可播放地址",
+                        "播放地址为空",
                         null
                 );
             }
-
             return;
         }
 
         currentEpisodeIndex = index;
-        retryCount = 0;
         prepared = false;
+        retryCount = 0;
 
-        String url =
-                episode.getPlayUrl().trim();
-
-        MediaItem.Builder builder =
-                new MediaItem.Builder()
-                        .setUri(Uri.parse(url));
-
-        if (episode.getId() != null) {
-            builder.setMediaId(
-                    episode.getId()
-            );
-        } else {
-            builder.setMediaId(
-                    String.valueOf(index)
-            );
-        }
+        MediaItem mediaItem =
+                MediaItem.fromUri(url);
 
         player.setMediaItem(
-                builder.build()
+                mediaItem
         );
 
         player.prepare();
-        player.setPlaybackSpeed(
-                currentSpeed
-        );
-        player.play();
+        player.setPlayWhenReady(true);
 
         if (listener != null) {
             listener.onEpisodeChanged(
                     episode,
-                    currentEpisodeIndex
+                    index
             );
         }
     }
 
-    public void playCurrent() {
-        if (player != null && !released) {
-            player.play();
+    public void play() {
+        if (player == null || released) {
+            return;
         }
+
+        player.play();
     }
 
     public void pause() {
-        if (player != null && !released) {
-            player.pause();
+        if (player == null || released) {
+            return;
         }
-    }
 
-    public void togglePlayPause() {
-        if (player == null || released) return;
-
-        if (player.isPlaying()) {
-            player.pause();
-        } else {
-            player.play();
-        }
+        player.pause();
     }
 
     public boolean isPlaying() {
         return player != null &&
                 !released &&
                 player.isPlaying();
+    }
+
+    public boolean isPrepared() {
+        return prepared;
     }
 
     public long getCurrentPosition() {
@@ -376,7 +321,7 @@ public class PlayerController {
         long duration =
                 player.getDuration();
 
-        if (duration == C.TIME_UNSET ||
+        if (duration == Player.TIME_UNSET ||
                 duration < 0L) {
             return 0L;
         }
@@ -384,12 +329,15 @@ public class PlayerController {
         return duration;
     }
 
-    public void seekTo(long positionMs) {
+    public void seekTo(
+            long positionMs
+    ) {
         if (player == null || released) {
             return;
         }
 
-        long duration = getDuration();
+        long duration =
+                getDuration();
 
         if (duration > 0L) {
             positionMs =
@@ -417,7 +365,9 @@ public class PlayerController {
         }
     }
 
-    public void seekBy(long deltaMs) {
+    public void seekBy(
+            long deltaMs
+    ) {
         seekTo(
                 getCurrentPosition() +
                         deltaMs
@@ -432,24 +382,43 @@ public class PlayerController {
         seekBy(-10_000L);
     }
 
+    public boolean hasNextEpisode() {
+        return currentEpisodeIndex >= 0 &&
+                currentEpisodeIndex + 1 <
+                        episodes.size();
+    }
+
+    public boolean hasPreviousEpisode() {
+        return currentEpisodeIndex > 0 &&
+                currentEpisodeIndex <
+                        episodes.size();
+    }
+
     public void nextEpisode() {
-        if (hasNextEpisode()) {
-            playEpisode(
-                    currentEpisodeIndex + 1
-            );
+        if (!hasNextEpisode()) {
+            return;
         }
+
+        playEpisode(
+                currentEpisodeIndex + 1
+        );
     }
 
     public void previousEpisode() {
-        if (hasPreviousEpisode()) {
-            playEpisode(
-                    currentEpisodeIndex - 1
-            );
+        if (!hasPreviousEpisode()) {
+            return;
         }
+
+        playEpisode(
+                currentEpisodeIndex - 1
+        );
     }
 
-    public void setSpeed(float speed) {
-        if (player == null || released) {
+    public void setSpeed(
+            float speed
+    ) {
+        if (player == null ||
+                released) {
             return;
         }
 
@@ -460,10 +429,15 @@ public class PlayerController {
         }
 
         currentSpeed = speed;
-        player.setPlaybackSpeed(speed);
+
+        player.setPlaybackSpeed(
+                speed
+        );
 
         if (listener != null) {
-            listener.onSpeedChanged(speed);
+            listener.onSpeedChanged(
+                    speed
+            );
         }
     }
 
@@ -471,7 +445,9 @@ public class PlayerController {
         return currentSpeed;
     }
 
-    public void setAutoNext(boolean autoNext) {
+    public void setAutoNext(
+            boolean autoNext
+    ) {
         this.autoNext = autoNext;
     }
 
@@ -479,11 +455,16 @@ public class PlayerController {
         return autoNext;
     }
 
-    public void setMaxRetryCount(int count) {
+    public void setMaxRetryCount(
+            int count
+    ) {
         maxRetryCount =
                 Math.max(
                         0,
-                        Math.min(count, 10)
+                        Math.min(
+                                count,
+                                10
+                        )
                 );
     }
 
@@ -534,8 +515,11 @@ public class PlayerController {
                     new Runnable() {
                         @Override
                         public void run() {
-                            if (!released &&
-                                    retryIndex >= 0 &&
+                            if (released) {
+                                return;
+                            }
+
+                            if (retryIndex >= 0 &&
                                     retryIndex <
                                             episodes.size()) {
                                 playEpisode(
@@ -551,7 +535,8 @@ public class PlayerController {
         }
 
         if (listener != null) {
-            String message = "播放失败";
+            String message =
+                    "播放失败";
 
             if (exception != null &&
                     exception.getMessage() != null &&
@@ -615,115 +600,28 @@ public class PlayerController {
         prepared = false;
     }
 
-    public void clear() {
-        if (player == null || released) {
-            return;
-        }
-
-        player.stop();
-        player.clearMediaItems();
-
-        currentVideo = null;
-        episodes.clear();
-        currentEpisodeIndex = -1;
-
-        prepared = false;
-        retryCount = 0;
-    }
-
-    public boolean isPrepared() {
-        return prepared;
-    }
-
-    public boolean isNetworkAvailable() {
-        return NetworkUtils.isNetworkAvailable(
-                context
-        );
-    }
-
-    private void reportProgress() {
-        if (player == null || released) {
-            return;
-        }
-
-        long position =
-                getCurrentPosition();
-
-        long duration =
-                getDuration();
-
-        if (position != lastReportedPosition ||
-                duration > 0L) {
-
-            lastReportedPosition =
-                    position;
-
-            if (listener != null) {
-                listener.onProgress(
-                        position,
-                        duration
-                );
-            }
-        }
-    }
-
-    public void attachView(View playerView) {
-        if (playerView == null ||
-                player == null) {
-            return;
-        }
-
-        try {
-            if (playerView instanceof
-                    androidx.media3.ui.PlayerView) {
-
-                ((androidx.media3.ui.PlayerView)
-                        playerView)
-                        .setPlayer(player);
-            }
-        } catch (Exception ignored) {
-        }
-    }
-
-    public void detachView(View playerView) {
-        if (playerView == null) {
-            return;
-        }
-
-        try {
-            if (playerView instanceof
-                    androidx.media3.ui.PlayerView) {
-
-                ((androidx.media3.ui.PlayerView)
-                        playerView)
-                        .setPlayer(null);
-            }
-        } catch (Exception ignored) {
-        }
-    }
-
     public void release() {
-        if (released) return;
+        if (released) {
+            return;
+        }
 
         released = true;
 
-        mainHandler.removeCallbacks(
-                progressRunnable
+        mainHandler.removeCallbacksAndMessages(
+                null
         );
 
         if (player != null) {
             player.removeListener(
                     playerListener
             );
-
             player.release();
             player = null;
         }
 
-        currentVideo = null;
         episodes.clear();
-        currentEpisodeIndex = -1;
         listener = null;
+        video = null;
     }
 
     public boolean isReleased() {
