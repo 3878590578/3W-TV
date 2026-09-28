@@ -154,9 +154,9 @@ public class SpeedManager {
         return getNormalSpeed(seriesId);
     }
 
-    public boolean isSupportedSpeed(float speed) {
-        return isSupportedSpeedStatic(speed);
-    }
+    public static boolean isSupportedSpeed(float speed) {
+    return isSupportedSpeedStatic(speed);
+}
 
     public static boolean isSupportedSpeedStatic(float speed) {
         for (float value : SPEEDS) {
