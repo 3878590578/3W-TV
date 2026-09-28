@@ -1,75 +1,75 @@
 package com.threew.tv.player;
 
-/**
- * 播放器手势状态。
- */
 public class PlayerGestureState {
 
-    public enum Zone {
-        NONE,
-        LEFT,
-        CENTER,
-        RIGHT
-    }
+    public static final int NONE = 0;
+    public static final int SEEK = 1;
+    public static final int VOLUME = 2;
+    public static final int BRIGHTNESS = 3;
 
-    private Zone zone;
-    private boolean dragging;
-    private boolean longPressing;
-
-    private float downX;
-    private float downY;
+    private int gestureType;
+    private float startX;
+    private float startY;
+    private float lastX;
+    private float lastY;
 
     public PlayerGestureState() {
-        zone = Zone.NONE;
+        reset();
     }
 
-    public Zone getZone() {
-        return zone;
+    public void start(float x, float y) {
+        gestureType = NONE;
+        startX = x;
+        startY = y;
+        lastX = x;
+        lastY = y;
     }
 
-    public void setZone(Zone zone) {
-        this.zone = zone == null
-                ? Zone.NONE
-                : zone;
+    public void update(float x, float y) {
+        lastX = x;
+        lastY = y;
     }
 
-    public boolean isDragging() {
-        return dragging;
+    public void setGestureType(int type) {
+        if (type < NONE || type > BRIGHTNESS) {
+            type = NONE;
+        }
+        gestureType = type;
     }
 
-    public void setDragging(boolean dragging) {
-        this.dragging = dragging;
+    public int getGestureType() {
+        return gestureType;
     }
 
-    public boolean isLongPressing() {
-        return longPressing;
+    public float getStartX() {
+        return startX;
     }
 
-    public void setLongPressing(boolean longPressing) {
-        this.longPressing = longPressing;
+    public float getStartY() {
+        return startY;
     }
 
-    public float getDownX() {
-        return downX;
+    public float getLastX() {
+        return lastX;
     }
 
-    public float getDownY() {
-        return downY;
+    public float getLastY() {
+        return lastY;
     }
 
-    public void setDownPosition(
-            float x,
-            float y
-    ) {
-        downX = x;
-        downY = y;
+    public float getDeltaX() {
+        return lastX - startX;
+    }
+
+    public float getDeltaY() {
+        return lastY - startY;
     }
 
     public void reset() {
-        zone = Zone.NONE;
-        dragging = false;
-        longPressing = false;
-        downX = 0f;
-        downY = 0f;
+        gestureType = NONE;
+        startX = 0f;
+        startY = 0f;
+        lastX = 0f;
+        lastY = 0f;
     }
 }
