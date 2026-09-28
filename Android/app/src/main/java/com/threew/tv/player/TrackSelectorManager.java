@@ -6,25 +6,15 @@ import android.text.TextUtils;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.TrackSelectionOverride;
+import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-/**
- * Media3 播放器轨道管理器。
- *
- * 负责：
- * - 音频轨道选择
- * - 字幕轨道选择
- * - 自动选择
- * - 按语言选择
- * - 清除手动轨道覆盖
- *
- * 不负责视频清晰度 UI。
- */
 public class TrackSelectorManager {
 
     private final DefaultTrackSelector trackSelector;
@@ -35,14 +25,12 @@ public class TrackSelectorManager {
                         context.getApplicationContext()
                 );
 
-        DefaultTrackSelector.Parameters parameters =
-                trackSelector.buildUponParameters()
-                        .setTrackSelectionOverrides(
-                                new ArrayList<>()
-                        )
-                        .build();
-
-        trackSelector.setParameters(parameters);
+        trackSelector.setParameters(
+                trackSelector
+                        .buildUponParameters()
+                        .clearOverrides()
+                        .build()
+        );
     }
 
     public DefaultTrackSelector getTrackSelector() {
@@ -71,12 +59,12 @@ public class TrackSelectorManager {
             return;
         }
 
-        DefaultTrackSelector.Parameters.Builder builder =
+        TrackSelectionParameters.Builder builder =
                 player.getTrackSelectionParameters()
                         .buildUpon();
 
         if (TextUtils.isEmpty(language)) {
-            builder.setPreferredAudioLanguages();
+            builder.setPreferredAudioLanguage(null);
         } else {
             builder.setPreferredAudioLanguage(
                     language
@@ -96,12 +84,12 @@ public class TrackSelectorManager {
             return;
         }
 
-        DefaultTrackSelector.Parameters.Builder builder =
+        TrackSelectionParameters.Builder builder =
                 player.getTrackSelectionParameters()
                         .buildUpon();
 
         if (TextUtils.isEmpty(language)) {
-            builder.setPreferredTextLanguages();
+            builder.setPreferredTextLanguage(null);
         } else {
             builder.setPreferredTextLanguage(
                     language
@@ -125,7 +113,7 @@ public class TrackSelectorManager {
             return;
         }
 
-        DefaultTrackSelector.Parameters parameters =
+        TrackSelectionParameters parameters =
                 player.getTrackSelectionParameters()
                         .buildUpon()
                         .setTrackTypeDisabled(
@@ -146,7 +134,7 @@ public class TrackSelectorManager {
             return;
         }
 
-        DefaultTrackSelector.Parameters parameters =
+        TrackSelectionParameters parameters =
                 player.getTrackSelectionParameters()
                         .buildUpon()
                         .setTrackTypeDisabled(
@@ -165,33 +153,25 @@ public class TrackSelectorManager {
             Tracks.Group group,
             int trackIndex
     ) {
-        if (player == null
-                || group == null
-                || trackIndex < 0
-                || trackIndex >= group.length) {
+        if (player == null ||
+                group == null ||
+                trackIndex < 0 ||
+                trackIndex >= group.length) {
             return;
         }
-
-        DefaultTrackSelector.Parameters parameters =
-                player.getTrackSelectionParameters();
 
         TrackSelectionOverride override =
                 new TrackSelectionOverride(
                         group.getMediaTrackGroup(),
-                        java.util.Collections.singletonList(
+                        Collections.singletonList(
                                 trackIndex
                         )
                 );
 
-        parameters =
-                parameters
+        TrackSelectionParameters parameters =
+                player.getTrackSelectionParameters()
                         .buildUpon()
-                        .setTrackSelectionOverride(
-                                group.getMediaTrackGroup(),
-                                java.util.Collections.singletonList(
-                                        trackIndex
-                                )
-                        )
+                        .addOverride(override)
                         .build();
 
         player.setTrackSelectionParameters(
@@ -206,7 +186,7 @@ public class TrackSelectorManager {
             return;
         }
 
-        DefaultTrackSelector.Parameters parameters =
+        TrackSelectionParameters parameters =
                 player.getTrackSelectionParameters()
                         .buildUpon()
                         .clearOverrides()
@@ -262,6 +242,10 @@ public class TrackSelectorManager {
                 tracks.getGroups()) {
 
             if (group.getType() != trackType) {
+                continue;
+            }
+
+            if (group.length <= 0) {
                 continue;
             }
 
