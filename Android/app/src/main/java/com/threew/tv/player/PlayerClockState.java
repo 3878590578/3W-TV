@@ -1,27 +1,20 @@
 package com.threew.tv.player;
 
-/**
- * 播放器时钟显示状态。
- */
 public class PlayerClockState {
 
-    public enum Position {
-        TOP_LEFT,
-        TOP_CENTER,
-        TOP_RIGHT,
-        BOTTOM_LEFT,
-        BOTTOM_CENTER,
-        BOTTOM_RIGHT
-    }
-
     private boolean enabled;
-    private Position position;
-    private float textSize;
+    private int textSizeSp;
+    private int position;
+
+    public static final int TOP_RIGHT = 0;
+    public static final int TOP_LEFT = 1;
+    public static final int BOTTOM_RIGHT = 2;
+    public static final int BOTTOM_LEFT = 3;
 
     public PlayerClockState() {
         enabled = true;
-        position = Position.TOP_RIGHT;
-        textSize = 14f;
+        textSizeSp = 14;
+        position = TOP_RIGHT;
     }
 
     public boolean isEnabled() {
@@ -32,28 +25,30 @@ public class PlayerClockState {
         this.enabled = enabled;
     }
 
-    public Position getPosition() {
+    public int getTextSizeSp() {
+        return textSizeSp;
+    }
+
+    public void setTextSizeSp(int textSizeSp) {
+        this.textSizeSp = Math.max(8, Math.min(48, textSizeSp));
+    }
+
+    public int getPosition() {
         return position;
     }
 
-    public void setPosition(Position position) {
-        this.position = position == null
-                ? Position.TOP_RIGHT
-                : position;
+    public void setPosition(int position) {
+        if (position < TOP_RIGHT || position > BOTTOM_LEFT) {
+            position = TOP_RIGHT;
+        }
+        this.position = position;
     }
 
-    public float getTextSize() {
-        return textSize;
-    }
-
-    public void setTextSize(float textSize) {
-        this.textSize = Math.max(
-                8f,
-                Math.min(48f, textSize)
-        );
-    }
-
-    public void toggle() {
-        enabled = !enabled;
+    public PlayerClockState copy() {
+        PlayerClockState result = new PlayerClockState();
+        result.enabled = enabled;
+        result.textSizeSp = textSizeSp;
+        result.position = position;
+        return result;
     }
 }
