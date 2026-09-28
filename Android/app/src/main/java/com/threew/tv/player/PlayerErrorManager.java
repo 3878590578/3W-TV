@@ -6,259 +6,226 @@ import androidx.media3.common.Player;
 /**
  * 播放错误管理器
  *
- * 负责：
- * 1. 记录播放器错误
- * 2. 提供错误类型判断
- * 3. 生成用户可读错误信息
- * 4. 判断是否适合重试
- * 5. 判断是否适合切换线路
- * 6. 记录错误次数
+ * 统一保存最近一次播放错误，
+ * 并提供简单的错误分类。
  */
 public class PlayerErrorManager {
 
-    public enum ErrorType {
-        NONE,
-        NETWORK,
-        TIMEOUT,
-        SOURCE,
-        FORMAT,
-        DECODER,
-        DRM,
-        HTTP,
-        UNKNOWN
+    public static final int TYPE_UNKNOWN = 0;
+    public static final int TYPE_NETWORK = 1;
+    public static final int TYPE_SOURCE = 2;
+    public static final int TYPE_DECODER = 3;
+    public static final int TYPE_RENDERER = 4;
+    public static final int TYPE_TIMEOUT = 5;
+
+    private PlaybackException lastError;
+
+    private int errorType = TYPE_UNKNOWN;
+
+    private long errorTimeMs;
+
+    public void handleError(
+            PlaybackException error
+    ) {
+        lastError = error;
+        errorTimeMs =
+                System.currentTimeMillis();
+
+        errorType = classify(error);
     }
 
-    private Player player;
-
-    private ErrorType errorType = ErrorType.NONE;
-    private String errorMessage = "";
-    private int errorCode = 0;
-    private int errorCount = 0;
-
-    public PlayerErrorManager() {
+    public PlaybackException getLastError() {
+        return lastError;
     }
 
-    public PlayerErrorManager(Player player) {
-        this.player = player;
-    }
-
-    public void attachPlayer(Player player) {
-        this.player = player;
-    }
-
-    public Player getPlayer() {
-        return player;
-    }
-
-    /**
-     * 记录 Media3 播放错误
-     */
-    public void handleError(PlaybackException exception) {
-        errorCount++;
-
-        if (exception == null) {
-            errorType = ErrorType.UNKNOWN;
-            errorMessage = "未知播放错误";
-            errorCode = 0;
-            return;
-        }
-
-        errorCode = exception.errorCode;
-        errorType = detectErrorType(exception);
-        errorMessage = buildErrorMessage(exception);
-    }
-
-    /**
-     * 根据 Media3 错误码判断错误类型
-     */
-    private ErrorType detectErrorType(PlaybackException exception) {
-        int code = exception.errorCode;
-
-        switch (code) {
-            case PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED:
-            case PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT:
-            case PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS:
-            case PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND:
-                return ErrorType.NETWORK;
-
-            case PlaybackException.ERROR_CODE_IO_UNSPECIFIED:
-                return ErrorType.SOURCE;
-
-            case PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED:
-            case PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED:
-            case PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED:
-            case PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED:
-                return ErrorType.FORMAT;
-
-            case PlaybackException.ERROR_CODE_DECODER_INIT_FAILED:
-            case PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED:
-            case PlaybackException.ERROR_CODE_DECODING_FAILED:
-            case PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES:
-                return ErrorType.DECODER;
-
-            case PlaybackException.ERROR_CODE_DRM_PROVISIONING_FAILED:
-            case PlaybackException.ERROR_CODE_DRM_LICENSE_ACQUISITION_FAILED:
-            case PlaybackException.ERROR_CODE_DRM_CONTENT_ERROR:
-            case PlaybackException.ERROR_CODE_DRM_SYSTEM_ERROR:
-                return ErrorType.DRM;
-
-            default:
-                return ErrorType.UNKNOWN;
-        }
-    }
-
-    /**
-     * 生成用户可读错误信息
-     */
-    private String buildErrorMessage(PlaybackException exception) {
-        switch (errorType) {
-            case NETWORK:
-                if (exception.errorCode
-                        == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT) {
-                    return "网络连接超时";
-                }
-
-                if (exception.errorCode
-                        == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED) {
-                    return "网络连接失败";
-                }
-
-                if (exception.errorCode
-                        == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS) {
-                    return "视频服务器返回异常";
-                }
-
-                if (exception.errorCode
-                        == PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND) {
-                    return "视频地址不存在";
-                }
-
-                return "网络异常";
-
-            case FORMAT:
-                return "视频格式无法解析";
-
-            case DECODER:
-                return "设备无法解码当前视频";
-
-            case DRM:
-                return "当前视频受到播放授权限制";
-
-            case SOURCE:
-                return "视频源无法播放";
-
-            case HTTP:
-                return "服务器请求异常";
-
-            case TIMEOUT:
-                return "请求超时";
-
-            case UNKNOWN:
-            default:
-                if (exception.getMessage() != null
-                        && !exception.getMessage().isEmpty()) {
-                    return exception.getMessage();
-                }
-
-                return "播放发生未知错误";
-        }
-    }
-
-    /**
-     * 是否存在错误
-     */
-    public boolean hasError() {
-        return errorType != ErrorType.NONE;
-    }
-
-    public ErrorType getErrorType() {
+    public int getErrorType() {
         return errorType;
     }
 
+    public long getErrorTimeMs() {
+        return errorTimeMs;
+    }
+
+    public boolean hasError() {
+        return lastError != null;
+    }
+
+    public boolean isNetworkError() {
+        return errorType == TYPE_NETWORK ||
+                errorType == TYPE_TIMEOUT;
+    }
+
+    public boolean isDecoderError() {
+        return errorType == TYPE_DECODER;
+    }
+
+    public boolean isRendererError() {
+        return errorType == TYPE_RENDERER;
+    }
+
     public String getErrorMessage() {
-        return errorMessage;
-    }
-
-    public int getErrorCode() {
-        return errorCode;
-    }
-
-    public int getErrorCount() {
-        return errorCount;
-    }
-
-    /**
-     * 网络类错误通常适合重试
-     */
-    public boolean canRetry() {
-        return errorType == ErrorType.NETWORK
-                || errorType == ErrorType.TIMEOUT
-                || errorType == ErrorType.SOURCE
-                || errorType == ErrorType.HTTP;
-    }
-
-    /**
-     * 是否建议切换视频源
-     */
-    public boolean shouldSwitchSource() {
-        return errorType == ErrorType.NETWORK
-                || errorType == ErrorType.TIMEOUT
-                || errorType == ErrorType.SOURCE
-                || errorType == ErrorType.HTTP;
-    }
-
-    /**
-     * 是否属于不可通过切源解决的问题
-     */
-    public boolean isLocalPlaybackProblem() {
-        return errorType == ErrorType.FORMAT
-                || errorType == ErrorType.DECODER
-                || errorType == ErrorType.DRM;
-    }
-
-    /**
-     * 重试当前播放器
-     */
-    public void retry() {
-        if (player == null) {
-            return;
+        if (lastError == null) {
+            return "";
         }
 
-        clearError();
+        if (lastError.getMessage() != null &&
+                !lastError.getMessage().trim().isEmpty()) {
+            return lastError.getMessage();
+        }
 
-        player.prepare();
-        player.play();
+        return getErrorTypeName();
     }
 
-    /**
-     * 清除错误
-     */
-    public void clearError() {
-        errorType = ErrorType.NONE;
-        errorMessage = "";
-        errorCode = 0;
+    public String getErrorTypeName() {
+        switch (errorType) {
+            case TYPE_NETWORK:
+                return "网络错误";
+
+            case TYPE_SOURCE:
+                return "视频源错误";
+
+            case TYPE_DECODER:
+                return "解码错误";
+
+            case TYPE_RENDERER:
+                return "播放器渲染错误";
+
+            case TYPE_TIMEOUT:
+                return "连接超时";
+
+            default:
+                return "播放错误";
+        }
     }
 
-    /**
-     * 重置错误计数
-     */
-    public void resetErrorCount() {
-        errorCount = 0;
+    public boolean canRetry() {
+        if (lastError == null) {
+            return false;
+        }
+
+        return errorType != TYPE_DECODER;
     }
 
-    /**
-     * 完全重置
-     */
-    public void reset() {
-        clearError();
-        errorCount = 0;
+    public boolean shouldTryNextSource() {
+        return errorType == TYPE_NETWORK ||
+                errorType == TYPE_SOURCE ||
+                errorType == TYPE_TIMEOUT;
     }
 
-    /**
-     * 释放
-     */
-    public void release() {
-        player = null;
-        reset();
+    public void clear() {
+        lastError = null;
+        errorType = TYPE_UNKNOWN;
+        errorTimeMs = 0L;
+    }
+
+    private int classify(
+            PlaybackException error
+    ) {
+        if (error == null) {
+            return TYPE_UNKNOWN;
+        }
+
+        String text =
+                buildErrorText(error)
+                        .toLowerCase();
+
+        if (containsAny(
+                text,
+                "timeout",
+                "timed out",
+                "connection",
+                "network",
+                "socket",
+                "unknownhost",
+                "unreachable",
+                "http",
+                "dns"
+        )) {
+            return TYPE_NETWORK;
+        }
+
+        if (containsAny(
+                text,
+                "decoder",
+                "decode",
+                "codec",
+                "mediacodec"
+        )) {
+            return TYPE_DECODER;
+        }
+
+        if (containsAny(
+                text,
+                "renderer",
+                "render"
+        )) {
+            return TYPE_RENDERER;
+        }
+
+        if (containsAny(
+                text,
+                "source",
+                "extractor",
+                "playlist",
+                "manifest",
+                "m3u8"
+        )) {
+            return TYPE_SOURCE;
+        }
+
+        return TYPE_UNKNOWN;
+    }
+
+    private String buildErrorText(
+            PlaybackException error
+    ) {
+        StringBuilder builder =
+                new StringBuilder();
+
+        builder.append(
+                error.getErrorCodeName()
+        );
+
+        if (error.getMessage() != null) {
+            builder.append(" ");
+            builder.append(error.getMessage());
+        }
+
+        Throwable cause =
+                error.getCause();
+
+        if (cause != null) {
+            builder.append(" ");
+            builder.append(
+                    cause.getClass()
+                            .getName()
+            );
+
+            if (cause.getMessage() != null) {
+                builder.append(" ");
+                builder.append(
+                        cause.getMessage()
+                );
+            }
+        }
+
+        return builder.toString();
+    }
+
+    private boolean containsAny(
+            String value,
+            String... words
+    ) {
+        if (value == null) {
+            return false;
+        }
+
+        for (String word : words) {
+            if (value.contains(word)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
