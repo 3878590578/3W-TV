@@ -1,72 +1,61 @@
 package com.threew.tv.player;
 
 /**
- * 播放器画面显示状态。
+ * 播放画面显示状态。
  */
 public class PlayerDisplayState {
 
-    public enum Mode {
-        FIT,
-        FILL,
-        CROP,
-        ORIGINAL,
-        RATIO_16_9,
-        RATIO_4_3
-    }
+    public static final String FIT = "fit";
+    public static final String FILL = "fill";
+    public static final String CROP = "crop";
+    public static final String ORIGINAL = "original";
+    public static final String RATIO_16_9 = "16:9";
+    public static final String RATIO_4_3 = "4:3";
 
-    private Mode mode;
-    private boolean showControls;
-    private boolean showClock;
-    private boolean showVideoInfo;
+    private String mode;
 
     public PlayerDisplayState() {
-        mode = Mode.FIT;
-        showControls = true;
-        showClock = true;
-        showVideoInfo = true;
+        this(FIT);
     }
 
-    public Mode getMode() {
+    public PlayerDisplayState(String mode) {
+        setMode(mode);
+    }
+
+    public String getMode() {
         return mode;
     }
 
-    public void setMode(Mode mode) {
-        this.mode = mode == null ? Mode.FIT : mode;
+    public void setMode(String mode) {
+        if (FIT.equals(mode)
+                || FILL.equals(mode)
+                || CROP.equals(mode)
+                || ORIGINAL.equals(mode)
+                || RATIO_16_9.equals(mode)
+                || RATIO_4_3.equals(mode)) {
+            this.mode = mode;
+        } else {
+            this.mode = FIT;
+        }
     }
 
-    public boolean isShowControls() {
-        return showControls;
+    public boolean isFit() {
+        return FIT.equals(mode);
     }
 
-    public void setShowControls(boolean showControls) {
-        this.showControls = showControls;
+    public boolean isFill() {
+        return FILL.equals(mode);
     }
 
-    public boolean isShowClock() {
-        return showClock;
+    public boolean isCrop() {
+        return CROP.equals(mode);
     }
 
-    public void setShowClock(boolean showClock) {
-        this.showClock = showClock;
+    public boolean isOriginal() {
+        return ORIGINAL.equals(mode);
     }
 
-    public boolean isShowVideoInfo() {
-        return showVideoInfo;
-    }
-
-    public void setShowVideoInfo(boolean showVideoInfo) {
-        this.showVideoInfo = showVideoInfo;
-    }
-
-    public void toggleControls() {
-        showControls = !showControls;
-    }
-
-    public void toggleClock() {
-        showClock = !showClock;
-    }
-
-    public void toggleVideoInfo() {
-        showVideoInfo = !showVideoInfo;
+    public PlayerDisplayState copy() {
+        return new PlayerDisplayState(mode);
     }
 }
