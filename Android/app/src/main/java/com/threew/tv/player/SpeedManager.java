@@ -9,21 +9,33 @@ import java.util.Locale;
 
 public class SpeedManager {
 
+    private static final float DEFAULT_SPEED = 1.0f;
+    private static final float DEFAULT_LONG_PRESS_SPEED = 2.0f;
+
     private static final float[] SPEEDS = {
-            1.0f, 1.5f, 2.0f, 2.5f,
-            3.0f, 5.0f, 8.0f
+            1.0f,
+            1.5f,
+            2.0f,
+            2.5f,
+            3.0f,
+            5.0f,
+            8.0f
     };
 
     private static final float[] LONG_PRESS_SPEEDS = {
-            2.0f, 3.0f, 5.0f, 8.0f
+            2.0f,
+            3.0f,
+            5.0f,
+            8.0f
     };
 
     private final SpeedSettings settings;
 
     public SpeedManager(Context context) {
-        settings = new SpeedSettings(
-                context.getApplicationContext()
-        );
+        settings =
+                new SpeedSettings(
+                        context.getApplicationContext()
+                );
     }
 
     public float[] getSupportedSpeeds() {
@@ -59,7 +71,9 @@ public class SpeedManager {
         }
 
         return normalizeSpeed(
-                settings.getSpeedForSeries(seriesId)
+                settings.getSpeedForSeries(
+                        seriesId
+                )
         );
     }
 
@@ -95,41 +109,33 @@ public class SpeedManager {
     }
 
     public float getNormalSpeed(String seriesId) {
-        return hasSeriesSpeed(seriesId)
-                ? getSeriesSpeed(seriesId)
-                : getGlobalSpeed();
+        if (hasSeriesSpeed(seriesId)) {
+            return getSeriesSpeed(seriesId);
+        }
+
+        return getGlobalSpeed();
     }
 
     public void setNormalSpeed(
             String seriesId,
             float speed
     ) {
-        setSeriesSpeed(seriesId, speed);
+        setSeriesSpeed(
+                seriesId,
+                speed
+        );
     }
 
     public float getSpeed(String seriesId) {
         return getNormalSpeed(seriesId);
     }
 
-    public float getSpeed(long videoId) {
-        return getNormalSpeed(
-                String.valueOf(videoId)
-        );
-    }
-
     public void setSpeed(
             String seriesId,
             float speed
     ) {
-        setNormalSpeed(seriesId, speed);
-    }
-
-    public void setSpeed(
-            long videoId,
-            float speed
-    ) {
         setNormalSpeed(
-                String.valueOf(videoId),
+                seriesId,
                 speed
         );
     }
@@ -154,39 +160,34 @@ public class SpeedManager {
         return getNormalSpeed(seriesId);
     }
 
-    public static boolean isSupportedSpeed(float speed) {
-    return isSupportedSpeedStatic(speed);
-}
-
-    public static boolean isSupportedSpeedStatic(float speed) {
+    public boolean isSupportedSpeed(float speed) {
         for (float value : SPEEDS) {
             if (Math.abs(value - speed) < 0.01f) {
                 return true;
             }
         }
-        return false;
-    }
 
-    /*
-     * PlayerController 当前直接使用
-     * SpeedManager.isSupportedSpeed(speed)
-     */
-    public static boolean isSupportedSpeed(float speed) {
-        return isSupportedSpeedStatic(speed);
+        return false;
     }
 
     public float nextSpeed(float speed) {
         int index = getSpeedIndex(speed);
-        return index >= SPEEDS.length - 1
-                ? SPEEDS[SPEEDS.length - 1]
-                : SPEEDS[index + 1];
+
+        if (index >= SPEEDS.length - 1) {
+            return SPEEDS[SPEEDS.length - 1];
+        }
+
+        return SPEEDS[index + 1];
     }
 
     public float previousSpeed(float speed) {
         int index = getSpeedIndex(speed);
-        return index <= 0
-                ? SPEEDS[0]
-                : SPEEDS[index - 1];
+
+        if (index <= 0) {
+            return SPEEDS[0];
+        }
+
+        return SPEEDS[index - 1];
     }
 
     public int getSpeedIndex(float speed) {
@@ -206,13 +207,33 @@ public class SpeedManager {
     public static String formatSpeed(float speed) {
         speed = normalizeSpeedStatic(speed);
 
-        if (Math.abs(speed - 1.0f) < 0.01f) return "1×";
-        if (Math.abs(speed - 1.5f) < 0.01f) return "1.5×";
-        if (Math.abs(speed - 2.0f) < 0.01f) return "2×";
-        if (Math.abs(speed - 2.5f) < 0.01f) return "2.5×";
-        if (Math.abs(speed - 3.0f) < 0.01f) return "3×";
-        if (Math.abs(speed - 5.0f) < 0.01f) return "5×";
-        if (Math.abs(speed - 8.0f) < 0.01f) return "8×";
+        if (Math.abs(speed - 1.0f) < 0.01f) {
+            return "1×";
+        }
+
+        if (Math.abs(speed - 1.5f) < 0.01f) {
+            return "1.5×";
+        }
+
+        if (Math.abs(speed - 2.0f) < 0.01f) {
+            return "2×";
+        }
+
+        if (Math.abs(speed - 2.5f) < 0.01f) {
+            return "2.5×";
+        }
+
+        if (Math.abs(speed - 3.0f) < 0.01f) {
+            return "3×";
+        }
+
+        if (Math.abs(speed - 5.0f) < 0.01f) {
+            return "5×";
+        }
+
+        if (Math.abs(speed - 8.0f) < 0.01f) {
+            return "8×";
+        }
 
         return String.format(
                 Locale.US,
@@ -232,18 +253,16 @@ public class SpeedManager {
     private static float normalizeSpeedStatic(float speed) {
         if (Float.isNaN(speed) ||
                 Float.isInfinite(speed)) {
-            return 1.0f;
+            return DEFAULT_SPEED;
         }
 
         float nearest = SPEEDS[0];
-        float distance = Math.abs(
-                speed - nearest
-        );
+        float distance =
+                Math.abs(speed - nearest);
 
         for (float value : SPEEDS) {
-            float current = Math.abs(
-                    speed - value
-            );
+            float current =
+                    Math.abs(speed - value);
 
             if (current < distance) {
                 distance = current;
@@ -254,21 +273,25 @@ public class SpeedManager {
         return nearest;
     }
 
-    private float normalizeLongPressSpeed(float speed) {
+    private float normalizeLongPressSpeed(
+            float speed
+    ) {
         if (Float.isNaN(speed) ||
                 Float.isInfinite(speed)) {
-            return 2.0f;
+            return DEFAULT_LONG_PRESS_SPEED;
         }
 
-        float nearest = LONG_PRESS_SPEEDS[0];
-        float distance = Math.abs(
-                speed - nearest
-        );
+        float nearest =
+                LONG_PRESS_SPEEDS[0];
 
-        for (float value : LONG_PRESS_SPEEDS) {
-            float current = Math.abs(
-                    speed - value
-            );
+        float distance =
+                Math.abs(speed - nearest);
+
+        for (float value :
+                LONG_PRESS_SPEEDS) {
+
+            float current =
+                    Math.abs(speed - value);
 
             if (current < distance) {
                 distance = current;
