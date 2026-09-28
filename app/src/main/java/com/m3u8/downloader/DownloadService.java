@@ -29,6 +29,12 @@ public class DownloadService extends Service {
     public static final String ACTION_STOP =
             "com.m3u8.downloader.STOP";
 
+    public static final String ACTION_PAUSE =
+            "com.m3u8.downloader.PAUSE";
+
+    public static final String ACTION_RESUME =
+            "com.m3u8.downloader.RESUME";
+
     public static final String ACTION_RESET =
             "com.m3u8.downloader.RESET";
 
@@ -40,12 +46,6 @@ public class DownloadService extends Service {
 
     public static final String ACTION_STOPPED =
             "com.m3u8.downloader.STOPPED";
-
-    public static final String ACTION_PAUSE =
-            "com.m3u8.downloader.PAUSE";
-
-    public static final String ACTION_RESUME =
-            "com.m3u8.downloader.RESUME";
 
     public static final String EXTRA_INPUT =
             "input";
@@ -77,28 +77,32 @@ public class DownloadService extends Service {
     public static final String EXTRA_COMPLETED =
             "completed";
 
-    public static final String EXTRA_THREADS_ACTIVE =
-            "threads_active";
+    public static final String EXTRA_DOWNLOADED =
+            "downloaded";
+
+    public static final String EXTRA_TOTAL =
+            "total";
+
+    public static final String EXTRA_ACTIVE_THREADS =
+            "active_threads";
 
     private static final String CHANNEL_ID =
-            "m3u8_download";
+            "download";
 
     private static final int NOTIFICATION_ID =
             1001;
 
     private ExecutorService episodeExecutor;
 
-    private volatile boolean stopped;
-
-    private final Map<String, DownloadTask> tasks =
+    private final Map<String, DownloadTask>
+            tasks =
             new LinkedHashMap<>();
 
-    private final Object taskLock =
-            new Object();
+    private volatile boolean stopping;
 
-    private int totalTasks;
-    private final AtomicInteger finishedTasks =
-            new AtomicInteger(0);
+    private AtomicInteger finishedCount;
+
+    private int totalCount;
 
     @Override
     public void onCreate() {
@@ -134,13 +138,9 @@ public class DownloadService extends Service {
                     ),
                     intent.getIntExtra(
                             EXTRA_THREADS,
-                            8
+                            16
                     )
             );
-
-        } else if (ACTION_STOP.equals(action)) {
-
-            stopDownloads();
 
         } else if (ACTION_PAUSE.equals(action)) {
 
@@ -157,6 +157,10 @@ public class DownloadService extends Service {
                             EXTRA_TASK_ID
                     )
             );
+
+        } else if (ACTION_STOP.equals(action)) {
+
+            stopAll();
         }
 
         return START_NOT_STICKY;
@@ -168,13 +172,11 @@ public class DownloadService extends Service {
             int threads
     ) {
 
-        stopExecutorsOnly();
+        stopExecutors();
 
-        synchronized (taskLock) {
-            tasks.clear();
-        }
+        tasks.clear();
 
-        stopped = false;
+        stopping = false;
 
         maxEpisodes =
                 Math.min(
@@ -196,15 +198,14 @@ public class DownloadService extends Service {
 
         List<M3U8Item> items =
                 M3U8Parser.parseInput(
-                        input == null
-                                ? ""
-                                : input
+                        input
                 );
 
         if (items.isEmpty()) {
 
-            sendSimpleBroadcast(
-                    ACTION_STOPPED
+            showNotification(
+                    "没有找到有效下载地址",
+                    false
             );
 
             stopSelf();
@@ -223,29 +224,11 @@ public class DownloadService extends Service {
                     );
         }
 
-        totalTasks =
+        totalCount =
                 items.size();
 
-        finishedTasks.set(0);
-
-        sendSimpleBroadcast(
-                ACTION_RESET
-        );
-
-        startForeground(
-                NOTIFICATION_ID,
-                buildNotification(
-                        "准备下载 "
-                                + totalTasks
-                                + " 个任务",
-                        true
-                )
-        );
-
-        episodeExecutor =
-                Executors.newFixedThreadPool(
-                        maxEpisodes
-                );
+        finishedCount =
+                new AtomicInteger(0);
 
         for (int i = 0;
              i < items.size();
@@ -254,36 +237,47 @@ public class DownloadService extends Service {
             M3U8Item item =
                     items.get(i);
 
-            String taskId =
+            String id =
                     String.valueOf(i);
 
             DownloadTask task =
                     new DownloadTask(
-                            taskId,
+                            id,
                             item,
                             threads
                     );
 
-            synchronized (taskLock) {
-                tasks.put(
-                        taskId,
-                        task
-                );
-            }
+            tasks.put(
+                    id,
+                    task
+            );
 
             sendTask(
                     task,
-                    "等待中",
                     false
             );
+        }
 
-            final DownloadTask finalTask =
-                    task;
+        episodeExecutor =
+                Executors.newFixedThreadPool(
+                        maxEpisodes
+                );
+
+        startForeground(
+                NOTIFICATION_ID,
+                buildNotification(
+                        "准备 "
+                                + totalCount
+                                + " 个下载任务",
+                        true
+                )
+        );
+
+        for (DownloadTask task :
+                tasks.values()) {
 
             episodeExecutor.execute(
-                    () -> runTask(
-                            finalTask
-                    )
+                    () -> runTask(task)
             );
         }
     }
@@ -292,219 +286,33 @@ public class DownloadService extends Service {
             DownloadTask task
     ) {
 
-        if (stopped) {
-            return;
-        }
-
-        if (task.getStatus().equals(
-                DownloadTask.COMPLETED
+        if (stopping
+                || DownloadTask.PAUSED.equals(
+                task.getStatus()
         )) {
             return;
         }
 
-        if (task.getStatus().equals(
-                DownloadTask.PAUSED
-        )) {
-            return;
-        }
-
-        M3U8Item item =
-                task.getItem();
+        String url =
+                task.getItem().getUrl();
 
         String name =
-                item.getName();
+                task.getItem().getName();
 
         try {
 
-            if (FileUtils.videoExists(
-                    getApplicationContext(),
-                    name
-            )) {
+            if (isM3U8(url)) {
 
-                task.setStatus(
-                        DownloadTask.SKIPPED
+                runM3U8(
+                        task
                 );
 
-                task.setProgress(100);
-                task.setSpeed(0);
-                task.setActiveThreads(0);
-                task.setMessage(
-                        "同名文件已存在，已跳过"
+            } else {
+
+                runHttp(
+                        task
                 );
-
-                sendTask(
-                        task,
-                        task.getMessage(),
-                        true
-                );
-
-                finishOneTask();
-
-                return;
             }
-
-            task.setStatus(
-                    DownloadTask.RUNNING
-            );
-
-            task.setMessage(
-                    "正在解析 M3U8..."
-            );
-
-            sendTask(
-                    task,
-                    task.getMessage(),
-                    false
-            );
-
-            M3U8Downloader downloader =
-                    new M3U8Downloader(
-                            getApplicationContext(),
-                            item.getUrl(),
-                            item.getName(),
-                            task.getThreadCount()
-                    );
-
-            task.setDownloader(
-                    downloader
-            );
-
-            downloader.download(
-                    new M3U8Downloader.Listener() {
-
-                        @Override
-                        public void onProgress(
-                                int percent,
-                                String message,
-                                double speed,
-                                int activeThreads
-                        ) {
-
-                            if (task.getStatus().equals(
-                                    DownloadTask.PAUSED
-                            )) {
-                                return;
-                            }
-
-                            task.setProgress(
-                                    percent
-                            );
-
-                            task.setSpeed(
-                                    speed
-                            );
-
-                            task.setActiveThreads(
-                                    activeThreads
-                            );
-
-                            task.setMessage(
-                                    message
-                            );
-
-                            sendTask(
-                                    task,
-                                    message,
-                                    false
-                            );
-
-                            showNotification(
-                                    name
-                                            + " "
-                                            + percent
-                                            + "%",
-                                    true
-                            );
-                        }
-
-                        @Override
-                        public void onFinished(
-                                File file
-                        ) {
-
-                            if (task.getStatus().equals(
-                                    DownloadTask.PAUSED
-                            )) {
-                                return;
-                            }
-
-                            task.setDownloader(
-                                    null
-                            );
-
-                            task.setStatus(
-                                    DownloadTask.COMPLETED
-                            );
-
-                            task.setProgress(
-                                    100
-                            );
-
-                            task.setSpeed(0);
-                            task.setActiveThreads(0);
-
-                            task.setMessage(
-                                    "下载完成"
-                            );
-
-                            sendTask(
-                                    task,
-                                    "下载完成",
-                                    true
-                            );
-
-                            finishOneTask();
-                        }
-
-                        @Override
-                        public void onFailed(
-                                String message
-                        ) {
-
-                            task.setDownloader(
-                                    null
-                            );
-
-                            if (task.getStatus().equals(
-                                    DownloadTask.PAUSED
-                            )) {
-
-                                task.setSpeed(0);
-                                task.setActiveThreads(0);
-                                task.setMessage(
-                                        "已暂停，已保留已下载分片"
-                                );
-
-                                sendTask(
-                                        task,
-                                        task.getMessage(),
-                                        false
-                                );
-
-                                return;
-                            }
-
-                            task.setStatus(
-                                    DownloadTask.FAILED
-                            );
-
-                            task.setSpeed(0);
-                            task.setActiveThreads(0);
-
-                            task.setMessage(
-                                    message
-                            );
-
-                            sendTask(
-                                    task,
-                                    message,
-                                    false
-                            );
-
-                            finishOneTask();
-                        }
-                    }
-            );
 
         } catch (Exception e) {
 
@@ -512,45 +320,328 @@ public class DownloadService extends Service {
                     DownloadTask.FAILED
             );
 
-            task.setSpeed(0);
-            task.setActiveThreads(0);
-
             task.setMessage(
                     e.getMessage() == null
                             ? "下载失败"
                             : e.getMessage()
             );
 
+            task.setCompleted(false);
+
             sendTask(
                     task,
-                    task.getMessage(),
                     false
             );
 
-            finishOneTask();
+            markFinished();
         }
     }
 
-    private void pauseTask(
-            String taskId
+    private void runHttp(
+            DownloadTask task
     ) {
 
-        if (taskId == null) {
-            return;
-        }
+        String name =
+                task.getItem().getName();
 
-        DownloadTask task;
+        HttpDownloader downloader =
+                new HttpDownloader(
+                        getApplicationContext(),
+                        task.getItem().getUrl(),
+                        name,
+                        task.getThreadCount()
+                );
 
-        synchronized (taskLock) {
-            task = tasks.get(taskId);
-        }
+        task.setCancellable(
+                downloader
+        );
 
-        if (task == null) {
-            return;
-        }
-
-        if (!task.getStatus().equals(
+        task.setStatus(
                 DownloadTask.RUNNING
+        );
+
+        task.setMessage(
+                "正在连接"
+        );
+
+        sendTask(
+                task,
+                false
+        );
+
+        downloader.download(
+                new HttpDownloader.Listener() {
+
+                    @Override
+                    public void onProgress(
+                            int percent,
+                            long downloaded,
+                            long total,
+                            double speed,
+                            int activeThreads,
+                            String message
+                    ) {
+
+                        task.setProgress(
+                                percent
+                        );
+
+                        task.setDownloadedBytes(
+                                downloaded
+                        );
+
+                        task.setTotalBytes(
+                                total
+                        );
+
+                        task.setSpeed(
+                                speed
+                        );
+
+                        task.setActiveThreads(
+                                activeThreads
+                        );
+
+                        task.setMessage(
+                                message
+                        );
+
+                        sendTask(
+                                task,
+                                false
+                        );
+                    }
+
+                    @Override
+                    public void onFinished(
+                            File file
+                    ) {
+
+                        task.setProgress(100);
+                        task.setSpeed(0);
+                        task.setActiveThreads(0);
+                        task.setStatus(
+                                DownloadTask.COMPLETED
+                        );
+                        task.setMessage(
+                                "下载完成"
+                        );
+                        task.setCompleted(true);
+
+                        sendTask(
+                                task,
+                                true
+                        );
+
+                        markFinished();
+                    }
+
+                    @Override
+                    public void onFailed(
+                            String message
+                    ) {
+
+                        if (isPauseMessage(
+                                message
+                        )) {
+
+                            task.setStatus(
+                                    DownloadTask.PAUSED
+                            );
+                            task.setMessage(
+                                    "已暂停"
+                            );
+
+                            task.setSpeed(0);
+                            task.setActiveThreads(0);
+
+                            sendTask(
+                                    task,
+                                    false
+                            );
+
+                            return;
+                        }
+
+                        task.setStatus(
+                                DownloadTask.FAILED
+                        );
+
+                        task.setMessage(
+                                message
+                        );
+
+                        task.setActiveThreads(0);
+
+                        sendTask(
+                                task,
+                                false
+                        );
+
+                        markFinished();
+                    }
+                }
+        );
+    }
+
+    private void runM3U8(
+            DownloadTask task
+    ) {
+
+        M3U8Downloader downloader =
+                new M3U8Downloader(
+                        getApplicationContext(),
+                        task.getItem().getUrl(),
+                        task.getItem().getName(),
+                        task.getThreadCount()
+                );
+
+        task.setCancellable(
+                downloader
+        );
+
+        task.setStatus(
+                DownloadTask.RUNNING
+        );
+
+        task.setMessage(
+                "正在解析 M3U8"
+        );
+
+        sendTask(
+                task,
+                false
+        );
+
+        downloader.download(
+                new M3U8Downloader.Listener() {
+
+                    @Override
+                    public void onProgress(
+                            int percent,
+                            long downloaded,
+                            long total,
+                            double speed,
+                            int activeThreads,
+                            String message
+                    ) {
+
+                        task.setProgress(
+                                percent
+                        );
+
+                        task.setDownloadedBytes(
+                                downloaded
+                        );
+
+                        task.setTotalBytes(
+                                total
+                        );
+
+                        task.setSpeed(
+                                speed
+                        );
+
+                        task.setActiveThreads(
+                                activeThreads
+                        );
+
+                        task.setMessage(
+                                message
+                        );
+
+                        sendTask(
+                                task,
+                                false
+                        );
+                    }
+
+                    @Override
+                    public void onFinished(
+                            File file
+                    ) {
+
+                        task.setProgress(100);
+                        task.setSpeed(0);
+                        task.setActiveThreads(0);
+                        task.setStatus(
+                                DownloadTask.COMPLETED
+                        );
+                        task.setMessage(
+                                "下载完成"
+                        );
+                        task.setCompleted(true);
+
+                        sendTask(
+                                task,
+                                true
+                        );
+
+                        markFinished();
+                    }
+
+                    @Override
+                    public void onFailed(
+                            String message
+                    ) {
+
+                        if (isPauseMessage(
+                                message
+                        )) {
+
+                            task.setStatus(
+                                    DownloadTask.PAUSED
+                            );
+                            task.setMessage(
+                                    "已暂停"
+                            );
+
+                            task.setSpeed(0);
+                            task.setActiveThreads(0);
+
+                            sendTask(
+                                    task,
+                                    false
+                            );
+
+                            return;
+                        }
+
+                        task.setStatus(
+                                DownloadTask.FAILED
+                        );
+
+                        task.setMessage(
+                                message
+                        );
+
+                        task.setActiveThreads(0);
+
+                        sendTask(
+                                task,
+                                false
+                        );
+
+                        markFinished();
+                    }
+                }
+        );
+    }
+
+    private synchronized void pauseTask(
+            String id
+    ) {
+
+        if (id == null) {
+            return;
+        }
+
+        DownloadTask task =
+                tasks.get(id);
+
+        if (task == null
+                || DownloadTask.COMPLETED.equals(
+                task.getStatus()
         )) {
             return;
         }
@@ -559,157 +650,191 @@ public class DownloadService extends Service {
                 DownloadTask.PAUSED
         );
 
-        task.setSpeed(0);
-        task.setActiveThreads(0);
         task.setMessage(
                 "正在暂停..."
         );
 
-        M3U8Downloader downloader =
-                task.getDownloader();
-
-        if (downloader != null) {
-            downloader.cancel();
-        }
-
         sendTask(
                 task,
-                "正在暂停...",
                 false
         );
+
+        DownloadTask.Cancellable
+                cancellable =
+                task.getCancellable();
+
+        if (cancellable != null) {
+            cancellable.cancel();
+        }
     }
 
-    private void resumeTask(
-            String taskId
+    private synchronized void resumeTask(
+            String id
     ) {
 
-        if (taskId == null) {
+        if (id == null
+                || episodeExecutor == null
+                || episodeExecutor.isShutdown()) {
             return;
         }
 
-        DownloadTask task;
+        DownloadTask task =
+                tasks.get(id);
 
-        synchronized (taskLock) {
-            task = tasks.get(taskId);
-        }
-
-        if (task == null) {
-            return;
-        }
-
-        if (!task.getStatus().equals(
-                DownloadTask.PAUSED
+        if (task == null
+                || !DownloadTask.PAUSED.equals(
+                task.getStatus()
         )) {
             return;
         }
 
         task.setStatus(
-                DownloadTask.RUNNING
+                DownloadTask.WAITING
         );
 
         task.setMessage(
-                "正在继续..."
+                "等待恢复..."
         );
+
+        task.setCancellable(null);
 
         sendTask(
                 task,
-                task.getMessage(),
                 false
         );
 
-        if (episodeExecutor == null
-                || episodeExecutor.isShutdown()) {
-
-            return;
-        }
-
         episodeExecutor.execute(
-                () -> runTask(
-                        task
-                )
+                () -> runTask(task)
         );
     }
 
-    private void finishOneTask() {
+    private synchronized void stopAll() {
+
+        stopping = true;
+
+        for (DownloadTask task :
+                tasks.values()) {
+
+            if (DownloadTask.COMPLETED.equals(
+                    task.getStatus()
+            )) {
+                continue;
+            }
+
+            DownloadTask.Cancellable
+                    cancellable =
+                    task.getCancellable();
+
+            if (cancellable != null) {
+                cancellable.cancel();
+            }
+
+            task.setStatus(
+                    DownloadTask.PAUSED
+            );
+
+            task.setMessage(
+                    "已停止"
+            );
+
+            task.setSpeed(0);
+            task.setActiveThreads(0);
+
+            sendTask(
+                    task,
+                    false
+            );
+        }
+
+        stopExecutors();
+
+        sendBroadcast(
+                new Intent(
+                        ACTION_STOPPED
+                )
+                        .setPackage(
+                                getPackageName()
+                        )
+        );
+
+        stopForeground(true);
+        stopSelf();
+    }
+
+    private void markFinished() {
 
         int count =
-                finishedTasks.incrementAndGet();
+                finishedCount.incrementAndGet();
 
-        if (count >= totalTasks) {
+        if (count >= totalCount) {
+
+            sendBroadcast(
+                    new Intent(
+                            ACTION_ALL_DONE
+                    )
+                            .setPackage(
+                                    getPackageName()
+                            )
+            );
 
             showNotification(
-                    "全部任务完成："
-                            + count
-                            + " / "
-                            + totalTasks,
+                    "全部任务处理完成",
                     false
             );
 
-            sendSimpleBroadcast(
-                    ACTION_ALL_DONE
-            );
-
-            stopExecutorsOnly();
+            stopExecutors();
 
             stopForeground(false);
-
             stopSelf();
         }
     }
 
-    private synchronized void stopDownloads() {
+    private boolean isM3U8(
+            String url
+    ) {
 
-        stopped = true;
+        String lower =
+                url.toLowerCase();
 
-        synchronized (taskLock) {
+        int query =
+                lower.indexOf('?');
 
-            for (DownloadTask task :
-                    tasks.values()) {
-
-                M3U8Downloader downloader =
-                        task.getDownloader();
-
-                if (downloader != null) {
-                    downloader.cancel();
-                }
-
-                if (!task.getStatus().equals(
-                        DownloadTask.COMPLETED
-                )) {
-
-                    task.setStatus(
-                            DownloadTask.PAUSED
+        if (query >= 0) {
+            lower =
+                    lower.substring(
+                            0,
+                            query
                     );
-
-                    task.setSpeed(0);
-                    task.setActiveThreads(0);
-                    task.setMessage(
-                            "已停止"
-                    );
-
-                    sendTask(
-                            task,
-                            "已停止",
-                            false
-                    );
-                }
-            }
         }
 
-        stopExecutorsOnly();
-
-        sendSimpleBroadcast(
-                ACTION_STOPPED
+        return lower.endsWith(
+                ".m3u8"
         );
+    }
 
-        stopForeground(true);
+    private boolean isPauseMessage(
+            String message
+    ) {
 
-        stopSelf();
+        return message != null
+                && (
+                message.contains("暂停")
+                        || message.contains("停止")
+        );
+    }
+
+    private synchronized void stopExecutors() {
+
+        if (episodeExecutor != null) {
+
+            episodeExecutor.shutdownNow();
+
+            episodeExecutor = null;
+        }
     }
 
     private void sendTask(
             DownloadTask task,
-            String message,
             boolean completed
     ) {
 
@@ -749,7 +874,7 @@ public class DownloadService extends Service {
 
         intent.putExtra(
                 EXTRA_MESSAGE,
-                message
+                task.getMessage()
         );
 
         intent.putExtra(
@@ -758,44 +883,21 @@ public class DownloadService extends Service {
         );
 
         intent.putExtra(
-                EXTRA_THREADS,
-                task.getThreadCount()
+                EXTRA_DOWNLOADED,
+                task.getDownloadedBytes()
         );
 
         intent.putExtra(
-                EXTRA_THREADS_ACTIVE,
+                EXTRA_TOTAL,
+                task.getTotalBytes()
+        );
+
+        intent.putExtra(
+                EXTRA_ACTIVE_THREADS,
                 task.getActiveThreads()
         );
 
-        sendBroadcast(
-                intent
-        );
-    }
-
-    private void sendSimpleBroadcast(
-            String action
-    ) {
-
-        Intent intent =
-                new Intent(action);
-
-        intent.setPackage(
-                getPackageName()
-        );
-
-        sendBroadcast(
-                intent
-        );
-    }
-
-    private void stopExecutorsOnly() {
-
-        if (episodeExecutor != null) {
-
-            episodeExecutor.shutdownNow();
-
-            episodeExecutor = null;
-        }
+        sendBroadcast(intent);
     }
 
     private Notification buildNotification(
@@ -827,7 +929,7 @@ public class DownloadService extends Service {
                                 .stat_sys_download
                 )
                 .setContentTitle(
-                        "M3U8下载器"
+                        "下载器"
                 )
                 .setContentText(
                         text
@@ -835,12 +937,8 @@ public class DownloadService extends Service {
                 .setContentIntent(
                         pendingIntent
                 )
-                .setOnlyAlertOnce(
-                        true
-                )
-                .setOngoing(
-                        ongoing
-                )
+                .setOnlyAlertOnce(true)
+                .setOngoing(ongoing)
                 .build();
     }
 
@@ -861,30 +959,20 @@ public class DownloadService extends Service {
                                 NOTIFICATION_SERVICE
                         );
 
-        if (Build.VERSION.SDK_INT >= 33) {
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(
+                android.Manifest.permission
+                        .POST_NOTIFICATIONS
+        ) != getPackageManager()
+                .PERMISSION_GRANTED) {
 
-            if (checkSelfPermission(
-                    android.Manifest.permission
-                            .POST_NOTIFICATIONS
-            ) != android.content.pm.PackageManager
-                    .PERMISSION_GRANTED) {
-
-                return;
-            }
+            return;
         }
 
         manager.notify(
                 NOTIFICATION_ID,
                 notification
         );
-
-        if (ongoing) {
-
-            startForeground(
-                    NOTIFICATION_ID,
-                    notification
-            );
-        }
     }
 
     private void createNotificationChannel() {
@@ -896,13 +984,13 @@ public class DownloadService extends Service {
         NotificationChannel channel =
                 new NotificationChannel(
                         CHANNEL_ID,
-                        "M3U8下载",
+                        "下载任务",
                         NotificationManager
                                 .IMPORTANCE_LOW
                 );
 
         channel.setDescription(
-                "M3U8下载任务通知"
+                "下载器后台任务"
         );
 
         NotificationManager manager =
@@ -918,23 +1006,9 @@ public class DownloadService extends Service {
     @Override
     public void onDestroy() {
 
-        stopped = true;
+        stopping = true;
 
-        synchronized (taskLock) {
-
-            for (DownloadTask task :
-                    tasks.values()) {
-
-                M3U8Downloader downloader =
-                        task.getDownloader();
-
-                if (downloader != null) {
-                    downloader.cancel();
-                }
-            }
-        }
-
-        stopExecutorsOnly();
+        stopExecutors();
 
         super.onDestroy();
     }
