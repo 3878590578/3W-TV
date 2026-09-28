@@ -14,16 +14,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 播放器轨道选择适配器。
- *
- * 统一处理播放器中的媒体轨道选择：
- * - 视频轨道
- * - 音频轨道
- * - 字幕轨道
- *
- * 本类只负责展示轨道列表和当前选中状态。
- */
 public class PlayerTrackAdapter
         extends RecyclerView.Adapter<PlayerTrackAdapter.ViewHolder> {
 
@@ -79,10 +69,10 @@ public class PlayerTrackAdapter
     }
 
     private final Context context;
-    private final List<TrackItem> tracks = new ArrayList<>();
+    private final List<TrackItem> tracks =
+            new ArrayList<>();
 
     private String selectedId;
-
     private OnTrackClickListener listener;
 
     public PlayerTrackAdapter(Context context) {
@@ -95,7 +85,9 @@ public class PlayerTrackAdapter
         this.listener = listener;
     }
 
-    public void setItems(List<TrackItem> values) {
+    public void setItems(
+            List<TrackItem> values
+    ) {
         tracks.clear();
 
         if (values != null) {
@@ -105,13 +97,18 @@ public class PlayerTrackAdapter
         notifyDataSetChanged();
     }
 
-    public void addItem(TrackItem item) {
+    public void addItem(
+            TrackItem item
+    ) {
         if (item == null) {
             return;
         }
 
         tracks.add(item);
-        notifyItemInserted(tracks.size() - 1);
+
+        notifyItemInserted(
+                tracks.size() - 1
+        );
     }
 
     public void clear() {
@@ -120,7 +117,9 @@ public class PlayerTrackAdapter
         notifyDataSetChanged();
     }
 
-    public void setSelectedId(String id) {
+    public void setSelectedId(
+            String id
+    ) {
         selectedId = id;
         notifyDataSetChanged();
     }
@@ -129,8 +128,11 @@ public class PlayerTrackAdapter
         return selectedId;
     }
 
-    public TrackItem getItem(int position) {
-        if (position < 0 || position >= tracks.size()) {
+    public TrackItem getItem(
+            int position
+    ) {
+        if (position < 0 ||
+                position >= tracks.size()) {
             return null;
         }
 
@@ -147,4 +149,183 @@ public class PlayerTrackAdapter
     public ViewHolder onCreateViewHolder(
             @NonNull ViewGroup parent,
             int viewType
-    )
+    ) {
+        TextView view =
+                new TextView(context);
+
+        view.setTextSize(13);
+        view.setGravity(
+                Gravity.CENTER_VERTICAL
+        );
+
+        view.setSingleLine(true);
+
+        view.setPadding(
+                dp(14),
+                dp(10),
+                dp(14),
+                dp(10)
+        );
+
+        RecyclerView.LayoutParams params =
+                new RecyclerView.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        params.bottomMargin = dp(5);
+
+        view.setLayoutParams(params);
+
+        return new ViewHolder(view);
+    }
+
+    @Override
+    public void onBindViewHolder(
+            @NonNull ViewHolder holder,
+            int position
+    ) {
+        TrackItem item =
+                tracks.get(position);
+
+        StringBuilder text =
+                new StringBuilder();
+
+        if (item.getName() != null &&
+                !item.getName().trim().isEmpty()) {
+
+            text.append(
+                    item.getName()
+            );
+
+        } else {
+
+            switch (item.getType()) {
+
+                case TrackItem.TYPE_VIDEO:
+                    text.append("视频轨道");
+                    break;
+
+                case TrackItem.TYPE_AUDIO:
+                    text.append("音频轨道");
+                    break;
+
+                case TrackItem.TYPE_SUBTITLE:
+                    text.append("字幕轨道");
+                    break;
+
+                default:
+                    text.append("媒体轨道");
+                    break;
+            }
+        }
+
+        if (item.getLanguage() != null &&
+                !item.getLanguage().trim().isEmpty()) {
+
+            text.append(" · ");
+            text.append(item.getLanguage());
+        }
+
+        holder.text.setText(
+                text.toString()
+        );
+
+        boolean selected =
+                item.getId() != null
+                        && item.getId().equals(selectedId);
+
+        GradientDrawable background =
+                new GradientDrawable();
+
+        background.setCornerRadius(
+                dp(10)
+        );
+
+        if (selected) {
+
+            background.setColor(
+                    Color.rgb(38, 111, 170)
+            );
+
+            holder.text.setTextColor(
+                    Color.WHITE
+            );
+
+        } else if (!item.isEnabled()) {
+
+            background.setColor(
+                    Color.rgb(25, 28, 34)
+            );
+
+            holder.text.setTextColor(
+                    Color.rgb(90, 96, 105)
+            );
+
+        } else {
+
+            background.setColor(
+                    Color.rgb(20, 23, 31)
+            );
+
+            holder.text.setTextColor(
+                    Color.rgb(225, 228, 234)
+            );
+        }
+
+        holder.itemView.setBackground(
+                background
+        );
+
+        holder.itemView.setOnClickListener(v -> {
+
+            if (!item.isEnabled()) {
+                return;
+            }
+
+            int adapterPosition =
+                    holder.getBindingAdapterPosition();
+
+            if (adapterPosition ==
+                    RecyclerView.NO_POSITION) {
+                return;
+            }
+
+            selectedId =
+                    tracks.get(adapterPosition)
+                            .getId();
+
+            notifyDataSetChanged();
+
+            if (listener != null) {
+                listener.onTrackClick(
+                        tracks.get(adapterPosition)
+                );
+            }
+        });
+    }
+
+    private int dp(int value) {
+        return (int) (
+                value
+                        * context.getResources()
+                        .getDisplayMetrics()
+                        .density
+                        + 0.5f
+        );
+    }
+
+    public static class ViewHolder
+            extends RecyclerView.ViewHolder {
+
+        private final TextView text;
+
+        public ViewHolder(
+                @NonNull View itemView
+        ) {
+            super(itemView);
+
+            text = (TextView) itemView;
+        }
+    }
+}
