@@ -1,28 +1,59 @@
 package com.threew.tv.player;
 
-import androidx.media3.common.Player;
+import android.os.Handler;
+import android.os.Looper;
 
-import java.util.Locale;
+import androidx.media3.common.Player;
 
 /**
  * 播放进度管理器
  *
- * 负责：
- * 1. 获取当前播放进度
- * 2. 获取总时长
- * 3. 计算播放百分比
- * 4. 计算剩余时间
- * 5. 判断是否接近片尾
- * 6. 格式化时间
- * 7. 根据历史进度恢复播放
+ * 定时读取播放器当前位置。
+ *
+ * Media3 没有普通播放过程中的持续进度回调，
+ * 因此 UI 进度条需要按一定时间间隔主动查询播放器。
  */
 public class PlayerProgressManager {
 
-    private static final long DEFAULT_NEAR_END_MS = 30_000L;
+    public interface Listener {
+
+        default void onProgress(
+                long positionMs,
+                long durationMs,
+                long bufferedPositionMs,
+                float progress
+        ) {
+        }
+    }
+
+    private static final long DEFAULT_INTERVAL_MS = 500L;
+
+    private final Handler handler =
+            new Handler(Looper.getMainLooper());
 
     private Player player;
+    private Listener listener;
 
-    private long nearEndThresholdMs = DEFAULT_NEAR_END_MS;
+    private long intervalMs = DEFAULT_INTERVAL_MS;
+    private boolean running;
+
+    private final Runnable progressRunnable =
+            new Runnable() {
+
+                @Override
+                public void run() {
+                    if (!running) {
+                        return;
+                    }
+
+                    update();
+
+                    handler.postDelayed(
+                            this,
+                            intervalMs
+                    );
+                }
+            };
 
     public PlayerProgressManager() {
     }
@@ -31,7 +62,15 @@ public class PlayerProgressManager {
         this.player = player;
     }
 
-    public void attachPlayer(Player player) {
+    public PlayerProgressManager(
+            Player player,
+            Listener listener
+    ) {
+        this.player = player;
+        this.listener = listener;
+    }
+
+    public void setPlayer(Player player) {
         this.player = player;
     }
 
@@ -39,314 +78,231 @@ public class PlayerProgressManager {
         return player;
     }
 
-    /**
-     * 当前播放位置
-     */
-    public long getCurrentPosition() {
+    public void setListener(Listener listener) {
+        this.listener = listener;
+    }
+
+    public Listener getListener() {
+        return listener;
+    }
+
+    public void setInterval(long intervalMs) {
+        this.intervalMs = Math.max(
+                100L,
+                intervalMs
+        );
+
+        if (running) {
+            stop();
+            start();
+        }
+    }
+
+    public long getInterval() {
+        return intervalMs;
+    }
+
+    public void start() {
+        stop();
+
+        if (player == null) {
+            return;
+        }
+
+        running = true;
+
+        update();
+
+        handler.postDelayed(
+                progressRunnable,
+                intervalMs
+        );
+    }
+
+    public void stop() {
+        running = false;
+
+        handler.removeCallbacks(
+                progressRunnable
+        );
+    }
+
+    public boolean isRunning() {
+        return running;
+    }
+
+    public void update() {
+        if (player == null) {
+            notifyProgress(
+                    0L,
+                    0L,
+                    0L,
+                    0f
+            );
+            return;
+        }
+
+        long positionMs =
+                normalize(player.getCurrentPosition());
+
+        long durationMs =
+                normalize(player.getDuration());
+
+        long bufferedPositionMs =
+                normalize(player.getBufferedPosition());
+
+        if (durationMs > 0L) {
+            positionMs = Math.min(
+                    positionMs,
+                    durationMs
+            );
+
+            bufferedPositionMs = Math.min(
+                    bufferedPositionMs,
+                    durationMs
+            );
+        }
+
+        float progress = 0f;
+
+        if (durationMs > 0L) {
+            progress =
+                    positionMs /
+                    (float) durationMs;
+        }
+
+        progress = Math.min(
+                1f,
+                Math.max(
+                        0f,
+                        progress
+                )
+        );
+
+        notifyProgress(
+                positionMs,
+                durationMs,
+                bufferedPositionMs,
+                progress
+        );
+    }
+
+    private void notifyProgress(
+            long positionMs,
+            long durationMs,
+            long bufferedPositionMs,
+            float progress
+    ) {
+        if (listener != null) {
+            listener.onProgress(
+                    positionMs,
+                    durationMs,
+                    bufferedPositionMs,
+                    progress
+            );
+        }
+    }
+
+    public long getPosition() {
         if (player == null) {
             return 0L;
         }
 
-        long position = player.getCurrentPosition();
-
-        if (position < 0L) {
-            return 0L;
-        }
-
-        return position;
+        return normalize(
+                player.getCurrentPosition()
+        );
     }
 
-    /**
-     * 总时长
-     */
     public long getDuration() {
         if (player == null) {
             return 0L;
         }
 
-        long duration = player.getDuration();
+        return normalize(
+                player.getDuration()
+        );
+    }
 
-        if (duration == Player.TIME_UNSET || duration < 0L) {
+    public long getBufferedPosition() {
+        if (player == null) {
             return 0L;
         }
 
-        return duration;
+        return normalize(
+                player.getBufferedPosition()
+        );
     }
 
-    /**
-     * 剩余时间
-     */
-    public long getRemainingTime() {
+    public long getRemaining() {
         long duration = getDuration();
-        long position = getCurrentPosition();
+        long position = getPosition();
 
         if (duration <= 0L) {
             return 0L;
         }
 
-        return Math.max(0L, duration - position);
+        return Math.max(
+                0L,
+                duration - position
+        );
     }
 
-    /**
-     * 播放百分比 0~100
-     */
-    public int getProgressPercent() {
-        long duration = getDuration();
-
-        if (duration <= 0L) {
-            return 0;
-        }
-
-        long position = Math.min(getCurrentPosition(), duration);
-
-        return (int) Math.round(position * 100.0 / duration);
-    }
-
-    /**
-     * 播放比例 0~1
-     */
-    public float getProgressFraction() {
+    public float getProgress() {
         long duration = getDuration();
 
         if (duration <= 0L) {
             return 0f;
         }
 
-        long position = Math.min(getCurrentPosition(), duration);
-
-        return Math.max(0f, Math.min(1f, position / (float) duration));
-    }
-
-    /**
-     * 是否已经开始播放
-     */
-    public boolean hasStarted() {
-        return getCurrentPosition() > 0L;
-    }
-
-    /**
-     * 是否接近片尾
-     */
-    public boolean isNearEnd() {
-        return isNearEnd(nearEndThresholdMs);
-    }
-
-    /**
-     * 自定义片尾判断时间
-     */
-    public boolean isNearEnd(long thresholdMs) {
-        long duration = getDuration();
-
-        if (duration <= 0L) {
-            return false;
-        }
-
-        long remaining = getRemainingTime();
-
-        return remaining <= Math.max(0L, thresholdMs);
-    }
-
-    /**
-     * 是否已经播放完成
-     */
-    public boolean isFinished() {
-        if (player == null) {
-            return false;
-        }
-
-        return player.getPlaybackState() == Player.STATE_ENDED;
-    }
-
-    /**
-     * 是否正在播放
-     */
-    public boolean isPlaying() {
-        return player != null && player.isPlaying();
-    }
-
-    /**
-     * 设置片尾判断阈值
-     */
-    public void setNearEndThreshold(long thresholdMs) {
-        nearEndThresholdMs = Math.max(0L, thresholdMs);
-    }
-
-    public long getNearEndThreshold() {
-        return nearEndThresholdMs;
-    }
-
-    /**
-     * 跳转到指定百分比
-     */
-    public void seekToPercent(float percent) {
-        if (player == null) {
-            return;
-        }
-
-        long duration = getDuration();
-
-        if (duration <= 0L) {
-            return;
-        }
-
-        float safePercent = Math.max(0f, Math.min(100f, percent));
-        long position = (long) (duration * safePercent / 100f);
-
-        player.seekTo(position);
-    }
-
-    /**
-     * 跳转到指定比例
-     */
-    public void seekToFraction(float fraction) {
-        if (player == null) {
-            return;
-        }
-
-        long duration = getDuration();
-
-        if (duration <= 0L) {
-            return;
-        }
-
-        float safeFraction = Math.max(0f, Math.min(1f, fraction));
-        player.seekTo((long) (duration * safeFraction));
-    }
-
-    /**
-     * 恢复历史进度
-     *
-     * 规则：
-     * - <= 3 秒：从头播放
-     * - 已接近片尾：从头播放
-     * - 其他情况：从历史位置前 3 秒开始
-     */
-    public long calculateResumePosition(long historyPositionMs) {
-        long duration = getDuration();
-
-        if (duration <= 0L || historyPositionMs <= 0L) {
-            return 0L;
-        }
-
-        if (historyPositionMs <= 3_000L) {
-            return 0L;
-        }
-
-        long remaining = duration - historyPositionMs;
-
-        if (remaining <= 3_000L) {
-            return 0L;
-        }
-
-        long resumePosition = historyPositionMs - 3_000L;
-
-        return Math.max(0L, Math.min(resumePosition, duration));
-    }
-
-    /**
-     * 应用历史进度
-     */
-    public void resumeFrom(long historyPositionMs) {
-        if (player == null) {
-            return;
-        }
-
-        long position = calculateResumePosition(historyPositionMs);
-
-        player.seekTo(position);
-    }
-
-    /**
-     * 限制位置在有效范围内
-     */
-    public long clampPosition(long positionMs) {
-        long duration = getDuration();
-
-        if (duration <= 0L) {
-            return Math.max(0L, positionMs);
-        }
-
-        return Math.max(0L, Math.min(positionMs, duration));
-    }
-
-    /**
-     * 格式化播放时间
-     *
-     * 例如：
-     * 00:32
-     * 05:21
-     * 01:25:36
-     */
-    public String formatTime(long milliseconds) {
-        if (milliseconds < 0L) {
-            milliseconds = 0L;
-        }
-
-        long totalSeconds = milliseconds / 1000L;
-
-        long hours = totalSeconds / 3600L;
-        long minutes = (totalSeconds % 3600L) / 60L;
-        long seconds = totalSeconds % 60L;
-
-        if (hours > 0L) {
-            return String.format(
-                    Locale.getDefault(),
-                    "%02d:%02d:%02d",
-                    hours,
-                    minutes,
-                    seconds
-            );
-        }
-
-        return String.format(
-                Locale.getDefault(),
-                "%02d:%02d",
-                minutes,
-                seconds
+        return Math.min(
+                1f,
+                Math.max(
+                        0f,
+                        getPosition() /
+                                (float) duration
+                )
         );
     }
 
-    /**
-     * 当前播放时间
-     */
-    public String getCurrentTimeText() {
-        return formatTime(getCurrentPosition());
-    }
+    public float getBufferedProgress() {
+        long duration = getDuration();
 
-    /**
-     * 总时长文本
-     */
-    public String getDurationText() {
-        return formatTime(getDuration());
-    }
-
-    /**
-     * 剩余时间文本
-     */
-    public String getRemainingTimeText() {
-        return formatTime(getRemainingTime());
-    }
-
-    /**
-     * 播放进度文本
-     */
-    public String getProgressText() {
-        return getCurrentTimeText() + " / " + getDurationText();
-    }
-
-    /**
-     * 重置
-     */
-    public void reset() {
-        if (player != null) {
-            player.seekTo(0L);
+        if (duration <= 0L) {
+            return 0f;
         }
+
+        return Math.min(
+                1f,
+                Math.max(
+                        0f,
+                        getBufferedPosition() /
+                                (float) duration
+                )
+        );
     }
 
-    /**
-     * 释放引用
-     */
+    public boolean isNearEnd() {
+        long remaining = getRemaining();
+
+        return remaining > 0L &&
+                remaining <= 3000L;
+    }
+
     public void release() {
+        stop();
+
         player = null;
+        listener = null;
+    }
+
+    private long normalize(long value) {
+        if (value == Player.TIME_UNSET) {
+            return 0L;
+        }
+
+        return Math.max(
+                0L,
+                value
+        );
     }
 }
