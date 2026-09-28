@@ -9,22 +9,29 @@ public class PlayerRetryManager {
         policy = new PlayerRetryPolicy();
     }
 
-    public PlayerRetryManager(PlayerRetryPolicy policy) {
-        this.policy = policy == null
-                ? new PlayerRetryPolicy()
-                : policy;
+    public PlayerRetryManager(
+            PlayerRetryPolicy policy) {
+
+        this.policy =
+                policy == null
+                        ? new PlayerRetryPolicy()
+                        : policy;
     }
 
     public synchronized boolean canRetry() {
-        return policy.canRetry(attempt);
+        return policy.shouldRetry(
+                null,
+                attempt);
     }
 
     public synchronized int nextAttempt() {
+
         if (!canRetry()) {
             return attempt;
         }
 
         attempt++;
+
         return attempt;
     }
 
@@ -36,10 +43,14 @@ public class PlayerRetryManager {
         attempt = 0;
     }
 
-    public synchronized void setPolicy(PlayerRetryPolicy policy) {
-        this.policy = policy == null
-                ? new PlayerRetryPolicy()
-                : policy;
+    public synchronized void setPolicy(
+            PlayerRetryPolicy policy) {
+
+        this.policy =
+                policy == null
+                        ? new PlayerRetryPolicy()
+                        : policy;
+
         reset();
     }
 
