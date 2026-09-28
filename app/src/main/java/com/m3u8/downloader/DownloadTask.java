@@ -9,6 +9,10 @@ public class DownloadTask {
     public static final String FAILED = "FAILED";
     public static final String SKIPPED = "SKIPPED";
 
+    public interface Cancellable {
+        void cancel();
+    }
+
     private final String id;
     private final M3U8Item item;
     private final int threadCount;
@@ -16,10 +20,12 @@ public class DownloadTask {
     private volatile int progress;
     private volatile double speed;
     private volatile int activeThreads;
+    private volatile long downloadedBytes;
+    private volatile long totalBytes;
     private volatile String status;
     private volatile String message;
-
-    private volatile M3U8Downloader downloader;
+    private volatile boolean completed;
+    private volatile Cancellable cancellable;
 
     public DownloadTask(
             String id,
@@ -30,11 +36,14 @@ public class DownloadTask {
         this.item = item;
         this.threadCount = threadCount;
 
-        this.progress = 0;
-        this.speed = 0;
-        this.activeThreads = 0;
-        this.status = WAITING;
-        this.message = "等待中";
+        progress = 0;
+        speed = 0;
+        activeThreads = 0;
+        downloadedBytes = 0;
+        totalBytes = 0;
+        status = WAITING;
+        message = "等待中";
+        completed = false;
     }
 
     public String getId() {
@@ -73,6 +82,22 @@ public class DownloadTask {
         this.activeThreads = activeThreads;
     }
 
+    public long getDownloadedBytes() {
+        return downloadedBytes;
+    }
+
+    public void setDownloadedBytes(long downloadedBytes) {
+        this.downloadedBytes = downloadedBytes;
+    }
+
+    public long getTotalBytes() {
+        return totalBytes;
+    }
+
+    public void setTotalBytes(long totalBytes) {
+        this.totalBytes = totalBytes;
+    }
+
     public String getStatus() {
         return status;
     }
@@ -89,13 +114,19 @@ public class DownloadTask {
         this.message = message;
     }
 
-    public M3U8Downloader getDownloader() {
-        return downloader;
+    public boolean isCompleted() {
+        return completed;
     }
 
-    public void setDownloader(
-            M3U8Downloader downloader
-    ) {
-        this.downloader = downloader;
+    public void setCompleted(boolean completed) {
+        this.completed = completed;
+    }
+
+    public Cancellable getCancellable() {
+        return cancellable;
+    }
+
+    public void setCancellable(Cancellable cancellable) {
+        this.cancellable = cancellable;
     }
 }
