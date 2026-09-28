@@ -17,11 +17,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -29,21 +29,27 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-public class M3U8Downloader {
+public class M3U8Downloader
+        implements DownloadTask.Cancellable {
 
     public interface Listener {
 
         void onProgress(
                 int percent,
-                String message,
+                long downloaded,
+                long total,
                 double speed,
-                int activeThreads
+                int activeThreads,
+                String message
         );
 
         void onFinished(File file);
 
         void onFailed(String message);
     }
+
+    private static final int BUFFER_SIZE =
+            64 * 1024;
 
     private static final int MAX_RETRY = 3;
 
@@ -52,9 +58,8 @@ public class M3U8Downloader {
     private final String fileName;
     private final int threadCount;
 
-    private volatile boolean cancelled = false;
-
-    private ExecutorService segmentExecutor;
+    private final AtomicBoolean cancelled =
+            new AtomicBoolean(false);
 
     private final AtomicInteger activeThreads =
             new AtomicInteger(0);
@@ -62,7 +67,17 @@ public class M3U8Downloader {
     private final AtomicLong downloadedBytes =
             new AtomicLong(0);
 
+    private final java.util.Map<String, byte[]>
+            keyCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private volatile ExecutorService executor;
+
+    private volatile long totalBytes;
+
     private volatile long speedStartTime;
+
+    private volatile long speedStartBytes;
 
     public M3U8Downloader(
             Context context,
@@ -70,12 +85,16 @@ public class M3U8Downloader {
             String fileName,
             int threadCount
     ) {
-
         this.context =
                 context.getApplicationContext();
 
-        this.playlistUrl = playlistUrl;
-        this.fileName = fileName;
+        this.playlistUrl =
+                playlistUrl;
+
+        this.fileName =
+                FileUtils.safeFileName(
+                        fileName
+                );
 
         this.threadCount =
                 Math.min(
@@ -87,14 +106,16 @@ public class M3U8Downloader {
                 );
     }
 
+    @Override
     public void cancel() {
-        cancelled = true;
 
-        ExecutorService executor =
-                segmentExecutor;
+        cancelled.set(true);
 
-        if (executor != null) {
-            executor.shutdownNow();
+        ExecutorService e =
+                executor;
+
+        if (e != null) {
+            e.shutdownNow();
         }
     }
 
@@ -108,9 +129,11 @@ public class M3U8Downloader {
 
             listener.onProgress(
                     0,
-                    "正在解析 M3U8...",
                     0,
-                    0
+                    0,
+                    0,
+                    0,
+                    "正在解析 M3U8..."
             );
 
             Playlist playlist =
@@ -127,16 +150,16 @@ public class M3U8Downloader {
 
             workDirectory =
                     new File(
-                            FileUtils.getTempDirectory(
-                                    context
-                            ),
-                            String.valueOf(
-                                    Math.abs(
-                                            (
-                                                    playlistUrl
-                                                            + fileName
-                                            ).hashCode()
-                                    )
+                            FileUtils
+                                    .getTempDirectory(
+                                            context
+                                    ),
+                            "m3u8_"
+                                    + Math.abs(
+                                    (
+                                            playlistUrl
+                                                    + fileName
+                                    ).hashCode()
                             )
                     );
 
@@ -148,30 +171,48 @@ public class M3U8Downloader {
                 );
             }
 
+            totalBytes =
+                    playlist.estimatedSize();
+
             int total =
                     playlist.segments.size();
 
-            segmentExecutor =
+            int workers =
+                    Math.min(
+                            threadCount,
+                            Math.max(
+                                    1,
+                                    total
+                            )
+                    );
+
+            executor =
                     Executors.newFixedThreadPool(
-                            threadCount
+                            workers
                     );
 
             ExecutorCompletionService<Integer>
                     completion =
                     new ExecutorCompletionService<>(
-                            segmentExecutor
+                            executor
                     );
 
-            List<Future<Integer>> futures =
+            List<Future<Integer>>
+                    futures =
                     new ArrayList<>();
 
             int existing = 0;
+
+            long existingBytes = 0;
 
             for (int i = 0;
                  i < total;
                  i++) {
 
                 checkCancelled();
+
+                Segment segment =
+                        playlist.segments.get(i);
 
                 File part =
                         partFile(
@@ -183,6 +224,10 @@ public class M3U8Downloader {
                         && part.length() > 0) {
 
                     existing++;
+
+                    existingBytes +=
+                            part.length();
+
                     continue;
                 }
 
@@ -190,54 +235,42 @@ public class M3U8Downloader {
 
                 futures.add(
                         completion.submit(
-                                new Callable<Integer>() {
+                                () -> {
 
-                                    @Override
-                                    public Integer call()
-                                            throws Exception {
+                                    downloadSegment(
+                                            playlist
+                                                    .segments
+                                                    .get(index),
+                                            workDirectory,
+                                            index,
+                                            listener,
+                                            total
+                                    );
 
-                                        activeThreads.incrementAndGet();
-
-                                        try {
-
-                                            downloadOneSegment(
-                                                    playlist.segments
-                                                            .get(index),
-                                                    part,
-                                                    index
-                                            );
-
-                                            return index;
-
-                                        } finally {
-
-                                            activeThreads.decrementAndGet();
-                                        }
-                                    }
+                                    return index;
                                 }
                         )
                 );
             }
 
-            int finished = existing;
+            downloadedBytes.set(
+                    existingBytes
+            );
 
             speedStartTime =
                     System.currentTimeMillis();
 
-            downloadedBytes.set(0);
+            speedStartBytes =
+                    existingBytes;
 
-            listener.onProgress(
-                    percent(
-                            finished,
-                            total
-                    ),
-                    "已存在 "
-                            + finished
-                            + " / "
-                            + total
-                            + " 个分片",
-                    0,
-                    activeThreads.get()
+            int finished =
+                    existing;
+
+            notifyProgress(
+                    listener,
+                    finished,
+                    total,
+                    "正在下载"
             );
 
             for (int i = 0;
@@ -246,53 +279,52 @@ public class M3U8Downloader {
 
                 checkCancelled();
 
-                Future<Integer> future =
-                        completion.take();
-
-                future.get();
+                completion.take().get();
 
                 finished++;
 
-                listener.onProgress(
-                        percent(
-                                finished,
-                                total
-                        ),
-                        "下载分片 "
-                                + finished
-                                + " / "
-                                + total,
-                        calculateSpeed(),
-                        activeThreads.get()
+                notifyProgress(
+                        listener,
+                        finished,
+                        total,
+                        "正在下载"
                 );
             }
 
-            if (segmentExecutor != null) {
-                segmentExecutor.shutdown();
-            }
-
-            listener.onProgress(
-                    99,
-                    "正在合并...",
-                    0,
-                    0
-            );
-
-            File output =
-                    FileUtils.createTempOutput(
-                            context,
-                            fileName
-                    );
-
-            merge(
-                    workDirectory,
-                    playlist,
-                    output
-            );
+            executor.shutdown();
+            executor = null;
 
             checkCancelled();
 
-            FileUtils.publishVideo(
+            File output =
+                    new File(
+                            workDirectory,
+                            "output.tmp"
+                    );
+
+            merge(
+                    playlist,
+                    workDirectory,
+                    output
+            );
+
+            if (FileUtils.videoExists(
+                    context,
+                    fileName
+            )) {
+
+                deleteDirectory(
+                        workDirectory
+                );
+
+                listener.onFinished(
+                        output
+                );
+
+                return;
+            }
+
+            GenericFileUtils.publishFile(
                     context,
                     output,
                     fileName
@@ -302,537 +334,242 @@ public class M3U8Downloader {
                     workDirectory
             );
 
-            if (output.exists()) {
-                output.delete();
-            }
-
             listener.onProgress(
                     100,
-                    "下载完成",
+                    totalBytes,
+                    totalBytes,
                     0,
-                    0
+                    0,
+                    "下载完成"
             );
 
             listener.onFinished(
                     output
             );
 
-        } catch (Exception e) {
-
-            if (segmentExecutor != null) {
-                segmentExecutor.shutdownNow();
-            }
+        } catch (CancelledException e) {
 
             listener.onFailed(
-                    e.getMessage() == null
-                            ? "下载失败"
-                            : e.getMessage()
-            );
-        }
-    }
-
-    private void checkCancelled()
-            throws IOException {
-
-        if (cancelled
-                || Thread.currentThread().isInterrupted()) {
-
-            throw new IOException(
                     "任务已暂停"
             );
-        }
-    }
 
-    private double calculateSpeed() {
+        } catch (Exception e) {
 
-        long now =
-                System.currentTimeMillis();
-
-        long elapsed =
-                now - speedStartTime;
-
-        if (elapsed <= 0) {
-            return 0;
-        }
-
-        double megabytes =
-                downloadedBytes.get()
-                        / 1024.0
-                        / 1024.0;
-
-        return megabytes
-                / (elapsed / 1000.0);
-    }
-
-    private Playlist loadPlaylist(
-            String url,
-            int depth
-    ) throws IOException {
-
-        if (depth > 3) {
-            throw new IOException(
-                    "M3U8 播放列表嵌套过深"
-            );
-        }
-
-        String text =
-                requestText(url);
-
-        String[] lines =
-                text.replace(
-                                "\r",
-                                ""
-                        )
-                        .split("\n");
-
-        boolean master = false;
-
-        List<Variant> variants =
-                new ArrayList<>();
-
-        List<Segment> segments =
-                new ArrayList<>();
-
-        Encryption encryption = null;
-
-        InitSegment initSegment = null;
-
-        boolean expectVariantUrl = false;
-
-        for (String rawLine : lines) {
-
-            String line =
-                    rawLine.trim();
-
-            if (line.isEmpty()) {
-                continue;
-            }
-
-            if (line.startsWith(
-                    "#EXT-X-STREAM-INF"
-            )) {
-
-                master = true;
-                expectVariantUrl = true;
-
-                int bandwidth =
-                        parseAttributeInt(
-                                line,
-                                "BANDWIDTH"
-                        );
-
-                variants.add(
-                        new Variant(
-                                null,
-                                bandwidth
-                        )
+            if (cancelled.get()) {
+                listener.onFailed(
+                        "任务已暂停"
                 );
+            } else {
 
-                continue;
-            }
+                String message =
+                        e.getMessage();
 
-            if (master
-                    && expectVariantUrl
-                    && !line.startsWith("#")) {
-
-                Variant old =
-                        variants.get(
-                                variants.size() - 1
-                        );
-
-                variants.set(
-                        variants.size() - 1,
-                        new Variant(
-                                M3U8Parser.resolveUrl(
-                                        url,
-                                        line
-                                ),
-                                old.bandwidth
-                        )
-                );
-
-                expectVariantUrl = false;
-
-                continue;
-            }
-
-            if (line.startsWith(
-                    "#EXT-X-KEY:"
-            )) {
-
-                encryption =
-                        parseEncryption(
-                                line,
-                                url
-                        );
-
-                continue;
-            }
-
-            if (line.startsWith(
-                    "#EXT-X-MAP:"
-            )) {
-
-                String mapUri =
-                        parseAttribute(
-                                line,
-                                "URI"
-                        );
-
-                if (mapUri != null) {
-
-                    mapUri =
-                            stripQuotes(
-                                    mapUri
-                            );
-
-                    initSegment =
-                            new InitSegment(
-                                    M3U8Parser.resolveUrl(
-                                            url,
-                                            mapUri
-                                    )
-                            );
+                if (message == null
+                        || message.trim()
+                        .isEmpty()) {
+                    message = "M3U8下载失败";
                 }
 
-                continue;
-            }
-
-            if (line.startsWith("#")) {
-                continue;
-            }
-
-            segments.add(
-                    new Segment(
-                            M3U8Parser.resolveUrl(
-                                    url,
-                                    line
-                            ),
-                            encryption,
-                            segments.size()
-                    )
-            );
-        }
-
-        if (master) {
-
-            Variant best = null;
-
-            for (Variant variant :
-                    variants) {
-
-                if (variant.url == null) {
-                    continue;
-                }
-
-                if (best == null
-                        || variant.bandwidth
-                        > best.bandwidth) {
-
-                    best = variant;
-                }
-            }
-
-            if (best == null) {
-                throw new IOException(
-                        "没有找到可用的视频流"
+                listener.onFailed(
+                        message
                 );
             }
 
-            return loadPlaylist(
-                    best.url,
-                    depth + 1
-            );
-        }
+        } finally {
 
-        return new Playlist(
-                url,
-                segments,
-                initSegment
-        );
+            ExecutorService e =
+                    executor;
+
+            if (e != null) {
+                e.shutdownNow();
+            }
+
+            executor = null;
+            activeThreads.set(0);
+        }
     }
 
-    private Encryption parseEncryption(
-            String line,
-            String playlistUrl
-    ) throws IOException {
-
-        String method =
-                parseAttribute(
-                        line,
-                        "METHOD"
-                );
-
-        if (method == null
-                || "NONE".equalsIgnoreCase(
-                method
-        )) {
-            return null;
-        }
-
-        if (!"AES-128".equalsIgnoreCase(
-                method
-        )) {
-
-            throw new IOException(
-                    "暂不支持加密方式："
-                            + method
-            );
-        }
-
-        String keyUri =
-                parseAttribute(
-                        line,
-                        "URI"
-                );
-
-        if (keyUri == null) {
-            throw new IOException(
-                    "AES-128 缺少 KEY URI"
-            );
-        }
-
-        keyUri =
-                stripQuotes(
-                        keyUri
-                );
-
-        keyUri =
-                M3U8Parser.resolveUrl(
-                        playlistUrl,
-                        keyUri
-                );
-
-        String iv =
-                parseAttribute(
-                        line,
-                        "IV"
-                );
-
-        byte[] ivBytes =
-                parseIv(iv);
-
-        return new Encryption(
-                keyUri,
-                ivBytes
-        );
-    }
-
-    private byte[] parseIv(
-            String value
-    ) throws IOException {
-
-        if (value == null
-                || value.trim().isEmpty()) {
-
-            return null;
-        }
-
-        String hex =
-                value.trim();
-
-        if (hex.startsWith("0x")
-                || hex.startsWith("0X")) {
-
-            hex =
-                    hex.substring(2);
-        }
-
-        if ((hex.length() & 1) != 0) {
-
-            throw new IOException(
-                    "无效的 IV"
-            );
-        }
-
-        byte[] result =
-                new byte[16];
-
-        byte[] source =
-                new byte[
-                        hex.length() / 2
-                ];
-
-        for (int i = 0;
-             i < source.length;
-             i++) {
-
-            source[i] =
-                    (byte) Integer.parseInt(
-                            hex.substring(
-                                    i * 2,
-                                    i * 2 + 2
-                            ),
-                            16
-                    );
-        }
-
-        int copyLength =
-                Math.min(
-                        16,
-                        source.length
-                );
-
-        System.arraycopy(
-                source,
-                source.length - copyLength,
-                result,
-                16 - copyLength,
-                copyLength
-        );
-
-        return result;
-    }
-
-    private void downloadOneSegment(
+    private void downloadSegment(
             Segment segment,
-            File target,
-            int index
+            File workDirectory,
+            int index,
+            Listener listener,
+            int total
     ) throws Exception {
 
-        IOException last = null;
-
-        for (int attempt = 1;
-             attempt <= MAX_RETRY;
-             attempt++) {
-
-            checkCancelled();
-
-            File temp =
-                    new File(
-                            target.getParentFile(),
-                            target.getName()
-                                    + ".part"
-                    );
-
-            try {
-
-                byte[] data =
-                        requestBytes(
-                                segment.url
-                        );
-
-                if (segment.encryption != null) {
-
-                    byte[] key =
-                            requestBytes(
-                                    segment.encryption.keyUrl
-                            );
-
-                    data =
-                            decryptAes128(
-                                    data,
-                                    key,
-                                    segment.encryption.iv,
-                                    segment.sequence
-                            );
-                }
-
-                try (
-                        BufferedOutputStream out =
-                                new BufferedOutputStream(
-                                        new FileOutputStream(
-                                                temp
-                                        )
-                                )
-                ) {
-
-                    out.write(data);
-                }
-
-                downloadedBytes.addAndGet(
-                        data.length
+        File part =
+                partFile(
+                        workDirectory,
+                        index
                 );
 
-                if (target.exists()) {
-                    target.delete();
-                }
+        activeThreads.incrementAndGet();
 
-                if (!temp.renameTo(
-                        target
-                )) {
+        try {
 
-                    throw new IOException(
-                            "保存分片失败"
-                    );
-                }
+            for (int retry = 0;
+                 retry < MAX_RETRY;
+                 retry++) {
 
-                return;
+                try {
 
-            } catch (IOException e) {
+                    checkCancelled();
 
-                last = e;
+                    HttpURLConnection connection =
+                            openConnection(
+                                    segment.url
+                            );
 
-                if (temp.exists()) {
-                    temp.delete();
-                }
+                    if (segment.rangeStart >= 0) {
 
-                if (attempt < MAX_RETRY) {
+                        String range =
+                                "bytes="
+                                        + segment.rangeStart
+                                        + "-"
+                                        + segment.rangeEnd;
+
+                        connection
+                                .setRequestProperty(
+                                        "Range",
+                                        range
+                                );
+                    }
 
                     try {
 
-                        Thread.sleep(
-                                500L * attempt
-                        );
+                        int code =
+                                connection
+                                        .getResponseCode();
 
-                    } catch (
-                            InterruptedException ex
-                    ) {
+                        if (code != 200
+                                && code != 206) {
+                            throw new IOException(
+                                    "HTTP "
+                                            + code
+                            );
+                        }
 
-                        Thread.currentThread()
-                                .interrupt();
+                        ByteArrayOutputStream
+                                memory =
+                                new ByteArrayOutputStream();
 
-                        throw new IOException(
-                                "任务已暂停"
-                        );
+                        try (
+                                BufferedInputStream input =
+                                        new BufferedInputStream(
+                                                connection
+                                                        .getInputStream()
+                                        )
+                        ) {
+
+                            byte[] buffer =
+                                    new byte[
+                                            BUFFER_SIZE
+                                    ];
+
+                            int count;
+
+                            while ((count =
+                                    input.read(
+                                            buffer
+                                    )) != -1) {
+
+                                checkCancelled();
+
+                                memory.write(
+                                        buffer,
+                                        0,
+                                        count
+                                );
+
+                                long done =
+                                        downloadedBytes
+                                                .addAndGet(
+                                                        count
+                                                );
+
+                                notifySpeed(
+                                        listener,
+                                        done,
+                                        total
+                                );
+                            }
+                        }
+
+                        byte[] data =
+                                memory.toByteArray();
+
+                        if (segment.encryption
+                                != null) {
+
+                            data =
+                                    decrypt(
+                                            data,
+                                            segment
+                                                    .encryption
+                            );
+                        }
+
+                        try (
+                                BufferedOutputStream output =
+                                        new BufferedOutputStream(
+                                                new FileOutputStream(
+                                                        part
+                                                )
+                                        )
+                        ) {
+
+                            output.write(data);
+                        }
+
+                        return;
+
+                    } finally {
+                        connection.disconnect();
                     }
+
+                } catch (CancelledException e) {
+                    throw e;
+
+                } catch (Exception e) {
+
+                    if (retry
+                            == MAX_RETRY - 1) {
+                        throw e;
+                    }
+
+                    Thread.sleep(
+                            800L
+                                    * (retry + 1)
+                    );
                 }
             }
-        }
 
-        throw last == null
-                ? new IOException(
-                "分片下载失败"
-        )
-                : last;
+        } finally {
+            activeThreads.decrementAndGet();
+        }
     }
 
-    private byte[] decryptAes128(
-            byte[] encrypted,
-            byte[] key,
-            byte[] iv,
-            int sequence
-    ) throws GeneralSecurityException {
+    private byte[] decrypt(
+            byte[] data,
+            Encryption encryption
+    ) throws Exception {
 
-        if (key.length != 16) {
+        byte[] key =
+                keyCache.get(
+                        encryption.keyUrl
+                );
 
-            throw new GeneralSecurityException(
-                    "AES-128 KEY 长度错误"
+        if (key == null) {
+
+            key =
+                    readBytes(
+                            encryption.keyUrl
+                    );
+
+            keyCache.put(
+                    encryption.keyUrl,
+                    key
             );
-        }
-
-        byte[] actualIv = iv;
-
-        if (actualIv == null) {
-
-            actualIv =
-                    new byte[16];
-
-            long value =
-                    sequence;
-
-            for (int i = 15;
-                 i >= 8;
-                 i--) {
-
-                actualIv[i] =
-                        (byte) (
-                                value
-                                        & 0xff
-                        );
-
-                value >>>= 8;
-            }
         }
 
         Cipher cipher =
@@ -847,20 +584,24 @@ public class M3U8Downloader {
                         "AES"
                 ),
                 new IvParameterSpec(
-                        actualIv
+                        encryption.iv
                 )
         );
 
         return cipher.doFinal(
-                encrypted
+                data
         );
     }
 
     private void merge(
-            File directory,
             Playlist playlist,
+            File workDirectory,
             File output
     ) throws IOException {
+
+        if (output.exists()) {
+            output.delete();
+        }
 
         try (
                 BufferedOutputStream out =
@@ -874,35 +615,34 @@ public class M3U8Downloader {
             if (playlist.initSegment != null) {
 
                 byte[] init =
-                        requestBytes(
-                                playlist.initSegment.url
+                        readBytes(
+                                playlist
+                                        .initSegment
+                                        .url
                         );
 
                 out.write(init);
             }
 
             byte[] buffer =
-                    new byte[
-                            1024 * 1024
-                    ];
+                    new byte[BUFFER_SIZE];
 
             for (int i = 0;
                  i < playlist.segments.size();
                  i++) {
 
-                checkCancelled();
-
                 File part =
                         partFile(
-                                directory,
+                                workDirectory,
                                 i
                         );
 
-                if (!part.exists()) {
+                if (!part.exists()
+                        || part.length() == 0) {
 
                     throw new IOException(
-                            "缺少分片："
-                                    + (i + 1)
+                            "分片缺失："
+                                    + i
                     );
                 }
 
@@ -918,10 +658,7 @@ public class M3U8Downloader {
                     int count;
 
                     while ((count =
-                            in.read(buffer))
-                            != -1) {
-
-                        checkCancelled();
+                            in.read(buffer)) != -1) {
 
                         out.write(
                                 buffer,
@@ -934,52 +671,406 @@ public class M3U8Downloader {
         }
     }
 
-    private File partFile(
-            File directory,
-            int index
-    ) {
+    private Playlist loadPlaylist(
+            String url,
+            int depth
+    ) throws IOException {
 
-        return new File(
-                directory,
-                String.format(
-                        "%08d.ts",
-                        index
-                )
+        if (depth > 3) {
+            throw new IOException(
+                    "M3U8嵌套层级过深"
+            );
+        }
+
+        String text =
+                new String(
+                        readBytes(url),
+                        StandardCharsets.UTF_8
+                );
+
+        String[] lines =
+                text.replace(
+                                "\r",
+                                ""
+                        )
+                        .split("\n");
+
+        List<Variant> variants =
+                new ArrayList<>();
+
+        List<Segment> segments =
+                new ArrayList<>();
+
+        InitSegment initSegment =
+                null;
+
+        Encryption currentEncryption =
+                null;
+
+        long mediaSequence = 0;
+
+        long sequence = 0;
+
+        long rangeOffset = 0;
+
+        long rangeLength = -1;
+
+        for (int i = 0;
+             i < lines.length;
+             i++) {
+
+            String line =
+                    lines[i].trim();
+
+            if (line.isEmpty()) {
+                continue;
+            }
+
+            if (line.startsWith(
+                    "#EXT-X-MEDIA-SEQUENCE:"
+            )) {
+
+                try {
+                    mediaSequence =
+                            Long.parseLong(
+                                    line.substring(
+                                            line.indexOf(
+                                                    ':'
+                                            ) + 1
+                                    ).trim()
+                            );
+
+                    sequence =
+                            mediaSequence;
+
+                } catch (Exception ignored) {
+                }
+
+                continue;
+            }
+
+            if (line.startsWith(
+                    "#EXT-X-STREAM-INF:"
+            )) {
+
+                int bandwidth =
+                        parseAttributeInt(
+                                line,
+                                "BANDWIDTH"
+                        );
+
+                if (i + 1 < lines.length) {
+
+                    String child =
+                            lines[++i].trim();
+
+                    if (!child.startsWith("#")) {
+
+                        variants.add(
+                                new Variant(
+                                        resolve(
+                                                url,
+                                                child
+                                        ),
+                                        bandwidth
+                                )
+                        );
+                    }
+                }
+
+                continue;
+            }
+
+            if (line.startsWith(
+                    "#EXT-X-KEY:"
+            )) {
+
+                String method =
+                        parseAttribute(
+                                line,
+                                "METHOD"
+                        );
+
+                if ("NONE".equalsIgnoreCase(
+                        method
+                )) {
+
+                    currentEncryption = null;
+
+                } else if ("AES-128"
+                        .equalsIgnoreCase(
+                                method
+                        )) {
+
+                    String key =
+                            parseAttribute(
+                                    line,
+                                    "URI"
+                            );
+
+                    if (key != null) {
+
+                        String keyUrl =
+                                resolve(
+                                        url,
+                                        key
+                                );
+
+                        String ivText =
+                                parseAttribute(
+                                        line,
+                                        "IV"
+                                );
+
+                        byte[] iv =
+                                parseIv(
+                                        ivText,
+                                        sequence
+                                );
+
+                        currentEncryption =
+                                new Encryption(
+                                        keyUrl,
+                                        iv
+                                );
+                    }
+                }
+
+                continue;
+            }
+
+            if (line.startsWith(
+                    "#EXT-X-MAP:"
+            )) {
+
+                String map =
+                        parseAttribute(
+                                line,
+                                "URI"
+                        );
+
+                if (map != null) {
+
+                    initSegment =
+                            new InitSegment(
+                                    resolve(
+                                            url,
+                                            map
+                                    )
+                            );
+                }
+
+                continue;
+            }
+
+            if (line.startsWith(
+                    "#EXT-X-BYTERANGE:"
+            )) {
+
+                String value =
+                        line.substring(
+                                line.indexOf(':')
+                                        + 1
+                        ).trim();
+
+                String[] pieces =
+                        value.split("@");
+
+                try {
+
+                    rangeLength =
+                            Long.parseLong(
+                                    pieces[0]
+                            );
+
+                    if (pieces.length > 1) {
+                        rangeOffset =
+                                Long.parseLong(
+                                        pieces[1]
+                            );
+                    }
+
+                } catch (Exception ignored) {
+
+                    rangeLength = -1;
+                }
+
+                continue;
+            }
+
+            if (line.startsWith("#")) {
+                continue;
+            }
+
+            String segmentUrl =
+                    resolve(
+                            url,
+                            line
+                    );
+
+            long rangeStart = -1;
+            long rangeEnd = -1;
+
+            if (rangeLength > 0) {
+
+                rangeStart =
+                        rangeOffset;
+
+                rangeEnd =
+                        rangeOffset
+                                + rangeLength
+                                - 1;
+
+                rangeOffset =
+                        rangeEnd + 1;
+
+                rangeLength = -1;
+            }
+
+            segments.add(
+                    new Segment(
+                            segmentUrl,
+                            currentEncryption,
+                            (int) sequence,
+                            rangeStart,
+                            rangeEnd
+                    )
+            );
+
+            sequence++;
+        }
+
+        if (!variants.isEmpty()) {
+
+            Variant selected =
+                    variants.get(0);
+
+            for (Variant variant :
+                    variants) {
+
+                if (variant.bandwidth
+                        > selected.bandwidth) {
+                    selected = variant;
+                }
+            }
+
+            return loadPlaylist(
+                    selected.url,
+                    depth + 1
+            );
+        }
+
+        return new Playlist(
+                url,
+                segments,
+                initSegment
         );
     }
 
-    private String requestText(
+    private long estimateLength(
+            String url
+    ) {
+
+        try {
+
+            HttpURLConnection connection =
+                    openConnection(url);
+
+            connection.setRequestMethod(
+                    "HEAD"
+            );
+
+            long value =
+                    connection
+                            .getContentLengthLong();
+
+            connection.disconnect();
+
+            return Math.max(
+                    0,
+                    value
+            );
+
+        } catch (Exception e) {
+
+            return 0;
+        }
+    }
+
+    private byte[] readBytes(
             String url
     ) throws IOException {
 
-        byte[] data =
-                requestBytes(url);
+        HttpURLConnection connection =
+                openConnection(url);
 
-        return new String(
-                data,
-                StandardCharsets.UTF_8
-        );
+        try {
+
+            int code =
+                    connection
+                            .getResponseCode();
+
+            if (code < 200
+                    || code >= 400) {
+
+                throw new IOException(
+                        "HTTP " + code
+                );
+            }
+
+            try (
+                    InputStream input =
+                            new BufferedInputStream(
+                                    connection
+                                            .getInputStream()
+                            );
+                    ByteArrayOutputStream output =
+                            new ByteArrayOutputStream()
+            ) {
+
+                byte[] buffer =
+                        new byte[
+                                BUFFER_SIZE
+                        ];
+
+                int count;
+
+                while ((count =
+                        input.read(buffer)) != -1) {
+
+                    checkCancelled();
+
+                    output.write(
+                            buffer,
+                            0,
+                            count
+                    );
+                }
+
+                return output.toByteArray();
+            }
+
+        } finally {
+            connection.disconnect();
+        }
     }
 
-    private byte[] requestBytes(
-            String urlString
+    private HttpURLConnection openConnection(
+            String url
     ) throws IOException {
 
         HttpURLConnection connection =
-                openConnection(
-                        urlString
-                );
-
-        connection.setRequestMethod(
-                "GET"
-        );
+                (HttpURLConnection)
+                        URI.create(url)
+                                .toURL()
+                                .openConnection();
 
         connection.setConnectTimeout(
                 15000
         );
 
         connection.setReadTimeout(
-                60000
+                30000
         );
 
         connection.setInstanceFollowRedirects(
@@ -991,87 +1082,42 @@ public class M3U8Downloader {
                 "Mozilla/5.0"
         );
 
-        int code =
-                connection.getResponseCode();
-
-        if (code < 200
-                || code >= 300) {
-
-            connection.disconnect();
-
-            throw new IOException(
-                    "HTTP错误："
-                            + code
-            );
-        }
-
-        try (
-                InputStream input =
-                        new BufferedInputStream(
-                                connection.getInputStream()
-                        );
-
-                ByteArrayOutputStream output =
-                        new ByteArrayOutputStream()
-        ) {
-
-            byte[] buffer =
-                    new byte[
-                            64 * 1024
-                    ];
-
-            int count;
-
-            while ((count =
-                    input.read(buffer))
-                    != -1) {
-
-                checkCancelled();
-
-                output.write(
-                        buffer,
-                        0,
-                        count
-                );
-            }
-
-            return output.toByteArray();
-
-        } finally {
-
-            connection.disconnect();
-        }
+        return connection;
     }
 
-    private HttpURLConnection openConnection(
-            String urlString
-    ) throws IOException {
-
-        URL url =
-                URI.create(
-                        urlString
-                ).toURL();
-
-        return (HttpURLConnection)
-                url.openConnection();
-    }
-
-    private int percent(
-            int finished,
-            int total
+    private String resolve(
+            String base,
+            String child
     ) {
 
-        if (total <= 0) {
+        return M3U8Parser.resolveUrl(
+                base,
+                child
+        );
+    }
+
+    private int parseAttributeInt(
+            String line,
+            String key
+    ) {
+
+        try {
+
+            String value =
+                    parseAttribute(
+                            line,
+                            key
+                    );
+
+            return value == null
+                    ? 0
+                    : Integer.parseInt(
+                            value
+                    );
+
+        } catch (Exception e) {
             return 0;
         }
-
-        return Math.min(
-                99,
-                (int) (
-                        finished * 100L
-                                / total
-                )
-        );
     }
 
     private String parseAttribute(
@@ -1126,55 +1172,175 @@ public class M3U8Downloader {
         return line.substring(
                 start,
                 end
-        );
+        ).trim();
     }
 
-    private String stripQuotes(
-            String value
+    private byte[] parseIv(
+            String value,
+            long sequence
     ) {
 
-        if (value == null) {
-            return null;
+        if (value == null
+                || value.trim().isEmpty()) {
+
+            byte[] iv =
+                    new byte[16];
+
+            long number =
+                    sequence;
+
+            for (int i = 15;
+                 i >= 0;
+                 i--) {
+
+                iv[i] =
+                        (byte) (
+                                number & 0xff
+                        );
+
+                number >>>= 8;
+            }
+
+            return iv;
         }
 
         value =
                 value.trim();
 
-        if (value.length() >= 2
-                && value.startsWith("\"")
-                && value.endsWith("\"")) {
-
-            return value.substring(
-                    1,
-                    value.length() - 1
-            );
+        if (value.startsWith(
+                "0x"
+        )) {
+            value =
+                    value.substring(2);
         }
 
-        return value;
+        byte[] iv =
+                new byte[16];
+
+        int byteIndex = 15;
+
+        for (int i =
+             value.length() - 2;
+             i >= 0
+                     && byteIndex >= 0;
+             i -= 2) {
+
+            try {
+
+                iv[byteIndex--] =
+                        (byte) Integer.parseInt(
+                                value.substring(
+                                        i,
+                                        i + 2
+                                ),
+                                16
+                        );
+
+            } catch (Exception ignored) {
+            }
+        }
+
+        return iv;
     }
 
-    private int parseAttributeInt(
-            String line,
-            String key
+    private void notifyProgress(
+            Listener listener,
+            int finished,
+            int total,
+            String message
     ) {
 
-        try {
+        int percent =
+                total <= 0
+                        ? 0
+                        : Math.min(
+                        99,
+                        finished * 100
+                                / total
+                );
 
-            String value =
-                    parseAttribute(
-                            line,
-                            key
+        listener.onProgress(
+                percent,
+                downloadedBytes.get(),
+                totalBytes,
+                currentSpeed(),
+                activeThreads.get(),
+                message
+        );
+    }
+
+    private void notifySpeed(
+            Listener listener,
+            long bytes,
+            int total
+    ) {
+
+        int finishedPercent = 0;
+
+        if (totalBytes > 0) {
+
+            finishedPercent =
+                    (int) Math.min(
+                            99,
+                            bytes * 100L
+                                    / totalBytes
                     );
+        }
 
-            return value == null
-                    ? 0
-                    : Integer.parseInt(
-                    value
-            );
+        listener.onProgress(
+                finishedPercent,
+                bytes,
+                totalBytes,
+                currentSpeed(),
+                activeThreads.get(),
+                "正在下载"
+        );
+    }
 
-        } catch (Exception e) {
+    private double currentSpeed() {
 
+        long now =
+                System.currentTimeMillis();
+
+        long elapsed =
+                now - speedStartTime;
+
+        if (elapsed <= 0) {
             return 0;
+        }
+
+        return Math.max(
+                0,
+                (downloadedBytes.get()
+                        - speedStartBytes)
+                        / 1024.0
+                        / 1024.0
+                        / (elapsed / 1000.0)
+        );
+    }
+
+    private File partFile(
+            File directory,
+            int index
+    ) {
+
+        return new File(
+                directory,
+                String.format(
+                        "part_%06d.ts",
+                        index
+                )
+        );
+    }
+
+    private void checkCancelled()
+            throws CancelledException {
+
+        if (cancelled.get()
+                || Thread.currentThread()
+                        .isInterrupted()) {
+
+            throw new CancelledException();
         }
     }
 
@@ -1184,7 +1350,6 @@ public class M3U8Downloader {
 
         if (directory == null
                 || !directory.exists()) {
-
             return;
         }
 
@@ -1196,13 +1361,8 @@ public class M3U8Downloader {
             for (File file : files) {
 
                 if (file.isDirectory()) {
-
-                    deleteDirectory(
-                            file
-                    );
-
+                    deleteDirectory(file);
                 } else {
-
                     file.delete();
                 }
             }
@@ -1222,10 +1382,28 @@ public class M3U8Downloader {
                 List<Segment> segments,
                 InitSegment initSegment
         ) {
-
             this.url = url;
             this.segments = segments;
             this.initSegment = initSegment;
+        }
+
+        long estimatedSize() {
+
+            long total = 0;
+
+            for (Segment segment :
+                    segments) {
+
+                if (segment.rangeStart >= 0) {
+
+                    total +=
+                            segment.rangeEnd
+                                    - segment.rangeStart
+                                    + 1;
+                }
+            }
+
+            return total;
         }
     }
 
@@ -1234,16 +1412,21 @@ public class M3U8Downloader {
         final String url;
         final Encryption encryption;
         final int sequence;
+        final long rangeStart;
+        final long rangeEnd;
 
         Segment(
                 String url,
                 Encryption encryption,
-                int sequence
+                int sequence,
+                long rangeStart,
+                long rangeEnd
         ) {
-
             this.url = url;
             this.encryption = encryption;
             this.sequence = sequence;
+            this.rangeStart = rangeStart;
+            this.rangeEnd = rangeEnd;
         }
     }
 
@@ -1256,7 +1439,6 @@ public class M3U8Downloader {
                 String keyUrl,
                 byte[] iv
         ) {
-
             this.keyUrl = keyUrl;
             this.iv = iv;
         }
@@ -1266,10 +1448,7 @@ public class M3U8Downloader {
 
         final String url;
 
-        InitSegment(
-                String url
-        ) {
-
+        InitSegment(String url) {
             this.url = url;
         }
     }
@@ -1283,9 +1462,12 @@ public class M3U8Downloader {
                 String url,
                 int bandwidth
         ) {
-
             this.url = url;
             this.bandwidth = bandwidth;
         }
+    }
+
+    private static class CancelledException
+            extends IOException {
     }
 }
