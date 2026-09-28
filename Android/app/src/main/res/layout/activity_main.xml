@@ -49,7 +49,7 @@
                 android:layout_weight="1"
                 android:background="@android:color/transparent"
                 android:hint="搜索影片、电视剧、动漫……"
-                android:hintTextColor="#6E7684"
+                android:textColorHint="#6E7684"
                 android:singleLine="true"
                 android:textColor="#F5F7FA"
                 android:textSize="14sp" />
