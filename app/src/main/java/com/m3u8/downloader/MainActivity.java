@@ -6,16 +6,20 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.provider.Settings;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.Spinner;
+import android.widget.ArrayAdapter;
 import android.widget.TextView;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -24,35 +28,45 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity
+        extends AppCompatActivity {
 
     private EditText inputUrls;
-    private Spinner episodeCountSpinner;
-    private Spinner threadCountSpinner;
+
+    private Spinner episodeSpinner;
+    private Spinner threadSpinner;
 
     private Button startButton;
     private Button stopButton;
     private Button chooseFolderButton;
 
-    private TextView statusText;
     private TextView folderText;
+    private TextView summaryText;
+
+    private TextView downloadingTab;
+    private TextView completedTab;
 
     private LinearLayout downloadingList;
     private LinearLayout completedList;
 
-    private final Map<String, View> taskViews =
-            new HashMap<>();
+    private ScrollView downloadingScroll;
+    private ScrollView completedScroll;
+
+    private boolean showingCompleted = false;
 
     private final Map<String, TaskInfo> taskInfos =
+            new HashMap<>();
+
+    private final Map<String, View> taskViews =
             new HashMap<>();
 
     private final ActivityResultLauncher<String>
             notificationPermission =
             registerForActivityResult(
-                    new ActivityResultContracts.RequestPermission(),
+                    new ActivityResultContracts
+                            .RequestPermission(),
                     granted -> {
                     }
             );
@@ -60,7 +74,8 @@ public class MainActivity extends AppCompatActivity {
     private final ActivityResultLauncher<String>
             storagePermission =
             registerForActivityResult(
-                    new ActivityResultContracts.RequestPermission(),
+                    new ActivityResultContracts
+                            .RequestPermission(),
                     granted -> {
                     }
             );
@@ -68,7 +83,8 @@ public class MainActivity extends AppCompatActivity {
     private final ActivityResultLauncher<Intent>
             folderPicker =
             registerForActivityResult(
-                    new ActivityResultContracts.StartActivityForResult(),
+                    new ActivityResultContracts
+                            .StartActivityForResult(),
                     result -> {
 
                         if (result.getResultCode()
@@ -98,11 +114,13 @@ public class MainActivity extends AppCompatActivity {
                                         );
 
                         try {
+
                             getContentResolver()
                                     .takePersistableUriPermission(
                                             uri,
                                             flags
                                     );
+
                         } catch (Exception ignored) {
                         }
 
@@ -115,7 +133,7 @@ public class MainActivity extends AppCompatActivity {
                     }
             );
 
-    private final BroadcastReceiver taskReceiver =
+    private final BroadcastReceiver receiver =
             new BroadcastReceiver() {
 
                 @Override
@@ -135,22 +153,23 @@ public class MainActivity extends AppCompatActivity {
                             .equals(action)) {
 
                         clearTaskLists();
+
                         return;
                     }
 
                     if (DownloadService.ACTION_TASK
                             .equals(action)) {
 
-                        updateTask(intent);
+                        updateTask(
+                                intent
+                        );
+
+                        return;
                     }
 
                     if (DownloadService.ACTION_ALL_DONE
                             .equals(action)) {
 
-                        statusText.setText(
-                                "全部下载完成"
-                        );
-
                         startButton.setEnabled(
                                 true
                         );
@@ -158,15 +177,15 @@ public class MainActivity extends AppCompatActivity {
                         stopButton.setEnabled(
                                 false
                         );
+
+                        updateSummary();
+
+                        return;
                     }
 
                     if (DownloadService.ACTION_STOPPED
                             .equals(action)) {
 
-                        statusText.setText(
-                                "已停止下载"
-                        );
-
                         startButton.setEnabled(
                                 true
                         );
@@ -174,6 +193,8 @@ public class MainActivity extends AppCompatActivity {
                         stopButton.setEnabled(
                                 false
                         );
+
+                        updateSummary();
                     }
                 }
             };
@@ -187,75 +208,13 @@ public class MainActivity extends AppCompatActivity {
                 savedInstanceState
         );
 
-        setContentView(
-                R.layout.activity_main
-        );
-
-        inputUrls =
-                findViewById(
-                        R.id.inputUrls
-                );
-
-        episodeCountSpinner =
-                findViewById(
-                        R.id.episodeCountSpinner
-                );
-
-        threadCountSpinner =
-                findViewById(
-                        R.id.threadCountSpinner
-                );
-
-        startButton =
-                findViewById(
-                        R.id.startButton
-                );
-
-        stopButton =
-                findViewById(
-                        R.id.stopButton
-                );
-
-        chooseFolderButton =
-                findViewById(
-                        R.id.chooseFolderButton
-                );
-
-        statusText =
-                findViewById(
-                        R.id.statusText
-                );
-
-        folderText =
-                findViewById(
-                        R.id.folderText
-                );
-
-        downloadingList =
-                findViewById(
-                        R.id.downloadingList
-                );
-
-        completedList =
-                findViewById(
-                        R.id.completedList
-                );
+        buildUi();
 
         requestPermissionsIfNeeded();
 
         updateFolderText();
 
-        startButton.setOnClickListener(
-                v -> startDownload()
-        );
-
-        stopButton.setOnClickListener(
-                v -> stopDownload()
-        );
-
-        chooseFolderButton.setOnClickListener(
-                v -> chooseDownloadFolder()
-        );
+        showDownloading();
     }
 
     @Override
@@ -285,7 +244,7 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= 33) {
 
             registerReceiver(
-                    taskReceiver,
+                    receiver,
                     filter,
                     Context.RECEIVER_NOT_EXPORTED
             );
@@ -293,7 +252,7 @@ public class MainActivity extends AppCompatActivity {
         } else {
 
             registerReceiver(
-                    taskReceiver,
+                    receiver,
                     filter
             );
         }
@@ -303,13 +262,520 @@ public class MainActivity extends AppCompatActivity {
     protected void onStop() {
 
         try {
+
             unregisterReceiver(
-                    taskReceiver
+                    receiver
             );
+
         } catch (Exception ignored) {
         }
 
         super.onStop();
+    }
+
+    private void buildUi() {
+
+        LinearLayout root =
+                new LinearLayout(
+                        this
+                );
+
+        root.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        root.setPadding(
+                dp(14),
+                dp(12),
+                dp(14),
+                dp(12)
+        );
+
+        TextView title =
+                new TextView(
+                        this
+                );
+
+        title.setText(
+                "M3U8 下载器"
+        );
+
+        title.setTextSize(
+                22
+        );
+
+        title.setTypeface(
+                null,
+                Typeface.BOLD
+        );
+
+        root.addView(
+                title
+        );
+
+        inputUrls =
+                new EditText(
+                        this
+                );
+
+        inputUrls.setHint(
+                "每行一个：M3U8地址#文件名"
+        );
+
+        inputUrls.setGravity(
+                Gravity.TOP
+        );
+
+        inputUrls.setMinLines(
+                5
+        );
+
+        inputUrls.setPadding(
+                dp(10),
+                dp(10),
+                dp(10),
+                dp(10)
+        );
+
+        LinearLayout.LayoutParams
+                inputParams =
+                new LinearLayout.LayoutParams(
+                        -1,
+                        dp(130)
+                );
+
+        inputParams.setMargins(
+                0,
+                dp(10),
+                0,
+                dp(8)
+        );
+
+        root.addView(
+                inputUrls,
+                inputParams
+        );
+
+        chooseFolderButton =
+                new Button(
+                        this
+                );
+
+        chooseFolderButton.setText(
+                "选择下载目录"
+        );
+
+        chooseFolderButton.setOnClickListener(
+                v -> chooseDownloadFolder()
+        );
+
+        root.addView(
+                chooseFolderButton
+        );
+
+        folderText =
+                new TextView(
+                        this
+                );
+
+        folderText.setTextSize(
+                12
+        );
+
+        folderText.setPadding(
+                dp(4),
+                0,
+                dp(4),
+                dp(6)
+        );
+
+        root.addView(
+                folderText
+        );
+
+        LinearLayout settings =
+                new LinearLayout(
+                        this
+                );
+
+        settings.setOrientation(
+                LinearLayout.HORIZONTAL
+        );
+
+        TextView episodeLabel =
+                new TextView(
+                        this
+                );
+
+        episodeLabel.setText(
+                "同时下载"
+        );
+
+        episodeLabel.setGravity(
+                Gravity.CENTER_VERTICAL
+        );
+
+        settings.addView(
+                episodeLabel,
+                new LinearLayout.LayoutParams(
+                        0,
+                        dp(50),
+                        1
+                )
+        );
+
+        episodeSpinner =
+                new Spinner(
+                        this
+                );
+
+        episodeSpinner.setAdapter(
+                spinnerAdapter(
+                        new String[]{
+                                "4",
+                                "8",
+                                "16"
+                        }
+                )
+        );
+
+        settings.addView(
+                episodeSpinner,
+                new LinearLayout.LayoutParams(
+                        0,
+                        dp(50),
+                        1
+                )
+        );
+
+        TextView threadLabel =
+                new TextView(
+                        this
+                );
+
+        threadLabel.setText(
+                "分片线程"
+        );
+
+        threadLabel.setGravity(
+                Gravity.CENTER_VERTICAL
+        );
+
+        settings.addView(
+                threadLabel,
+                new LinearLayout.LayoutParams(
+                        0,
+                        dp(50),
+                        1
+                )
+        );
+
+        threadSpinner =
+                new Spinner(
+                        this
+                );
+
+        threadSpinner.setAdapter(
+                spinnerAdapter(
+                        new String[]{
+                                "8",
+                                "16",
+                                "32"
+                        }
+                )
+        );
+
+        settings.addView(
+                threadSpinner,
+                new LinearLayout.LayoutParams(
+                        0,
+                        dp(50),
+                        1
+                )
+        );
+
+        root.addView(
+                settings
+        );
+
+        LinearLayout buttons =
+                new LinearLayout(
+                        this
+                );
+
+        buttons.setOrientation(
+                LinearLayout.HORIZONTAL
+        );
+
+        startButton =
+                new Button(
+                        this
+                );
+
+        startButton.setText(
+                "开始下载"
+        );
+
+        startButton.setOnClickListener(
+                v -> startDownload()
+        );
+
+        buttons.addView(
+                startButton,
+                new LinearLayout.LayoutParams(
+                        0,
+                        dp(52),
+                        1
+                )
+        );
+
+        stopButton =
+                new Button(
+                        this
+                );
+
+        stopButton.setText(
+                "停止全部"
+        );
+
+        stopButton.setEnabled(
+                false
+        );
+
+        stopButton.setOnClickListener(
+                v -> stopDownload()
+        );
+
+        buttons.addView(
+                stopButton,
+                new LinearLayout.LayoutParams(
+                        0,
+                        dp(52),
+                        1
+                )
+        );
+
+        root.addView(
+                buttons
+        );
+
+        summaryText =
+                new TextView(
+                        this
+                );
+
+        summaryText.setTextSize(
+                13
+        );
+
+        summaryText.setPadding(
+                0,
+                dp(4),
+                0,
+                dp(4)
+        );
+
+        root.addView(
+                summaryText
+        );
+
+        LinearLayout tabs =
+                new LinearLayout(
+                        this
+                );
+
+        tabs.setOrientation(
+                LinearLayout.HORIZONTAL
+        );
+
+        downloadingTab =
+                createTab(
+                        "下载中"
+                );
+
+        completedTab =
+                createTab(
+                        "已完成"
+                );
+
+        downloadingTab.setOnClickListener(
+                v -> showDownloading()
+        );
+
+        completedTab.setOnClickListener(
+                v -> showCompleted()
+        );
+
+        tabs.addView(
+                downloadingTab,
+                new LinearLayout.LayoutParams(
+                        0,
+                        dp(48),
+                        1
+                )
+        );
+
+        tabs.addView(
+                completedTab,
+                new LinearLayout.LayoutParams(
+                        0,
+                        dp(48),
+                        1
+                )
+        );
+
+        root.addView(
+                tabs
+        );
+
+        downloadingList =
+                new LinearLayout(
+                        this
+                );
+
+        downloadingList.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        downloadingScroll =
+                new ScrollView(
+                        this
+                );
+
+        downloadingScroll.addView(
+                downloadingList
+        );
+
+        completedList =
+                new LinearLayout(
+                        this
+                );
+
+        completedList.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        completedScroll =
+                new ScrollView(
+                        this
+                );
+
+        completedScroll.addView(
+                completedList
+        );
+
+        root.addView(
+                downloadingScroll,
+                new LinearLayout.LayoutParams(
+                        -1,
+                        0,
+                        1
+                )
+        );
+
+        root.addView(
+                completedScroll,
+                new LinearLayout.LayoutParams(
+                        -1,
+                        0,
+                        1
+                )
+        );
+
+        setContentView(
+                root
+        );
+    }
+
+    private TextView createTab(
+            String text
+    ) {
+
+        TextView tab =
+                new TextView(
+                        this
+                );
+
+        tab.setText(
+                text
+        );
+
+        tab.setTextSize(
+                16
+        );
+
+        tab.setGravity(
+                Gravity.CENTER
+        );
+
+        return tab;
+    }
+
+    private ArrayAdapter<String>
+    spinnerAdapter(
+            String[] values
+    ) {
+
+        ArrayAdapter<String> adapter =
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout
+                                .simple_spinner_item,
+                        values
+                );
+
+        adapter.setDropDownViewResource(
+                android.R.layout
+                        .simple_spinner_dropdown_item
+        );
+
+        return adapter;
+    }
+
+    private void showDownloading() {
+
+        showingCompleted = false;
+
+        downloadingScroll.setVisibility(
+                View.VISIBLE
+        );
+
+        completedScroll.setVisibility(
+                View.GONE
+        );
+
+        downloadingTab.setTypeface(
+                null,
+                Typeface.BOLD
+        );
+
+        completedTab.setTypeface(
+                null,
+                Typeface.NORMAL
+        );
+    }
+
+    private void showCompleted() {
+
+        showingCompleted = true;
+
+        downloadingScroll.setVisibility(
+                View.GONE
+        );
+
+        completedScroll.setVisibility(
+                View.VISIBLE
+        );
+
+        downloadingTab.setTypeface(
+                null,
+                Typeface.NORMAL
+        );
+
+        completedTab.setTypeface(
+                null,
+                Typeface.BOLD
+        );
     }
 
     private void chooseDownloadFolder() {
@@ -326,7 +792,9 @@ public class MainActivity extends AppCompatActivity {
                         | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
         );
 
-        folderPicker.launch(intent);
+        folderPicker.launch(
+                intent
+        );
     }
 
     private void startDownload() {
@@ -336,50 +804,30 @@ public class MainActivity extends AppCompatActivity {
                         .toString()
                         .trim();
 
-        List<M3U8Item> items =
-                M3U8Parser.parseInput(
-                        input
-                );
+        if (input.isEmpty()) {
 
-        if (items.isEmpty()) {
-
-            statusText.setText(
-                    "没有找到有效的 M3U8 地址"
+            summaryText.setText(
+                    "请先输入 M3U8 地址"
             );
 
             return;
         }
 
-        if (items.size() > 16) {
-
-            statusText.setText(
-                    "最多同时处理 16 个任务"
-            );
-
-            return;
-        }
-
-        int maxEpisodes =
+        int episodes =
                 Integer.parseInt(
-                        episodeCountSpinner
+                        episodeSpinner
                                 .getSelectedItem()
                                 .toString()
                 );
 
         int threads =
                 Integer.parseInt(
-                        threadCountSpinner
+                        threadSpinner
                                 .getSelectedItem()
                                 .toString()
                 );
 
         clearTaskLists();
-
-        statusText.setText(
-                "正在准备 "
-                        + items.size()
-                        + " 个任务"
-        );
 
         Intent intent =
                 new Intent(
@@ -398,7 +846,7 @@ public class MainActivity extends AppCompatActivity {
 
         intent.putExtra(
                 DownloadService.EXTRA_EPISODES,
-                maxEpisodes
+                episodes
         );
 
         intent.putExtra(
@@ -418,6 +866,8 @@ public class MainActivity extends AppCompatActivity {
         stopButton.setEnabled(
                 true
         );
+
+        showDownloading();
     }
 
     private void stopDownload() {
@@ -436,22 +886,9 @@ public class MainActivity extends AppCompatActivity {
                 intent
         );
 
-        statusText.setText(
-                "正在停止..."
-        );
-
         stopButton.setEnabled(
                 false
         );
-    }
-
-    private void clearTaskLists() {
-
-        downloadingList.removeAllViews();
-        completedList.removeAllViews();
-
-        taskViews.clear();
-        taskInfos.clear();
     }
 
     private void updateTask(
@@ -472,7 +909,8 @@ public class MainActivity extends AppCompatActivity {
 
         if (info == null) {
 
-            info = new TaskInfo();
+            info =
+                    new TaskInfo();
 
             info.id = id;
 
@@ -515,23 +953,34 @@ public class MainActivity extends AppCompatActivity {
                         false
                 );
 
+        info.threadCount =
+                intent.getIntExtra(
+                        DownloadService.EXTRA_THREADS,
+                        0
+                );
+
+        info.activeThreads =
+                intent.getIntExtra(
+                        DownloadService.EXTRA_THREADS_ACTIVE,
+                        0
+                );
+
         View old =
                 taskViews.get(id);
 
         if (old != null) {
 
-            LinearLayout parent =
-                    (LinearLayout) old.getParent();
-
-            if (parent != null) {
-                parent.removeView(old);
-            }
+            ViewParentHelper.removeFromParent(
+                    old
+            );
 
             taskViews.remove(id);
         }
 
         View card =
-                createTaskCard(info);
+                createTaskCard(
+                        info
+                );
 
         if (info.completed) {
 
@@ -567,33 +1016,36 @@ public class MainActivity extends AppCompatActivity {
                 LinearLayout.VERTICAL
         );
 
-        int padding =
-                dp(12);
-
         card.setPadding(
-                padding,
-                padding,
-                padding,
-                padding
+                dp(12),
+                dp(10),
+                dp(12),
+                dp(10)
         );
 
-        android.graphics.drawable.GradientDrawable
-                background =
-                new android.graphics.drawable.GradientDrawable();
+        android.graphics.drawable
+                .GradientDrawable bg =
+                new android.graphics.drawable
+                        .GradientDrawable();
 
-        background.setColor(
-                0xFFF7F7F7
+        bg.setColor(
+                Color.rgb(
+                        247,
+                        247,
+                        247
+                )
         );
 
-        background.setCornerRadius(
+        bg.setCornerRadius(
                 dp(10)
         );
 
         card.setBackground(
-                background
+                bg
         );
 
-        LinearLayout.LayoutParams cardParams =
+        LinearLayout.LayoutParams
+                cardParams =
                 new LinearLayout.LayoutParams(
                         -1,
                         -2
@@ -608,6 +1060,15 @@ public class MainActivity extends AppCompatActivity {
 
         card.setLayoutParams(
                 cardParams
+        );
+
+        LinearLayout titleRow =
+                new LinearLayout(
+                        this
+                );
+
+        titleRow.setGravity(
+                Gravity.CENTER_VERTICAL
         );
 
         TextView name =
@@ -625,17 +1086,73 @@ public class MainActivity extends AppCompatActivity {
                 16
         );
 
-        name.setTextColor(
-                0xFF222222
-        );
-
         name.setTypeface(
                 null,
-                android.graphics.Typeface.BOLD
+                Typeface.BOLD
         );
 
+        titleRow.addView(
+                name,
+                new LinearLayout.LayoutParams(
+                        0,
+                        -2,
+                        1
+                )
+        );
+
+        if (!info.completed) {
+
+            Button control =
+                    new Button(
+                            this
+                    );
+
+            if (DownloadTask.PAUSED.equals(
+                    info.status
+            )) {
+
+                control.setText(
+                        "继续"
+                );
+
+                control.setOnClickListener(
+                        v -> sendTaskControl(
+                                DownloadService.ACTION_RESUME,
+                                info.id
+                        )
+                );
+
+            } else if (
+                    DownloadTask.RUNNING.equals(
+                            info.status
+                    )
+            ) {
+
+                control.setText(
+                        "暂停"
+                );
+
+                control.setOnClickListener(
+                        v -> sendTaskControl(
+                                DownloadService.ACTION_PAUSE,
+                                info.id
+                        )
+                );
+
+            } else {
+
+                control.setText(
+                        "取消"
+                );
+            }
+
+            titleRow.addView(
+                    control
+            );
+        }
+
         card.addView(
-                name
+                titleRow
         );
 
         TextView state =
@@ -651,7 +1168,16 @@ public class MainActivity extends AppCompatActivity {
                     "✓ 已完成";
 
         } else if (
-                "RUNNING".equals(
+                DownloadTask.PAUSED.equals(
+                        info.status
+                )
+        ) {
+
+            stateText =
+                    "已暂停";
+
+        } else if (
+                DownloadTask.RUNNING.equals(
                         info.status
                 )
         ) {
@@ -660,13 +1186,22 @@ public class MainActivity extends AppCompatActivity {
                     "下载中";
 
         } else if (
-                "FAILED".equals(
+                DownloadTask.FAILED.equals(
                         info.status
                 )
         ) {
 
             stateText =
                     "下载失败";
+
+        } else if (
+                DownloadTask.SKIPPED.equals(
+                        info.status
+                )
+        ) {
+
+            stateText =
+                    "已跳过";
 
         } else {
 
@@ -682,19 +1217,6 @@ public class MainActivity extends AppCompatActivity {
                 13
         );
 
-        state.setTextColor(
-                info.completed
-                        ? 0xFF2E7D32
-                        : 0xFF666666
-        );
-
-        state.setPadding(
-                0,
-                dp(4),
-                0,
-                dp(4)
-        );
-
         card.addView(
                 state
         );
@@ -703,7 +1225,8 @@ public class MainActivity extends AppCompatActivity {
                 new ProgressBar(
                         this,
                         null,
-                        android.R.attr.progressBarStyleHorizontal
+                        android.R.attr
+                                .progressBarStyleHorizontal
                 );
 
         progress.setMax(
@@ -720,22 +1243,8 @@ public class MainActivity extends AppCompatActivity {
                 )
         );
 
-        if (Build.VERSION.SDK_INT >= 21) {
-
-            progress.setProgressTintList(
-                    android.content.res.ColorStateList.valueOf(
-                            0xFF2EAF4A
-                    )
-            );
-
-            progress.setProgressBackgroundTintList(
-                    android.content.res.ColorStateList.valueOf(
-                            0xFFD9D9D9
-                    )
-            );
-        }
-
-        LinearLayout.LayoutParams progressParams =
+        LinearLayout.LayoutParams
+                progressParams =
                 new LinearLayout.LayoutParams(
                         -1,
                         dp(7)
@@ -743,77 +1252,56 @@ public class MainActivity extends AppCompatActivity {
 
         progressParams.setMargins(
                 0,
-                dp(3),
+                dp(4),
                 0,
-                dp(5)
-        );
-
-        progress.setLayoutParams(
-                progressParams
+                dp(4)
         );
 
         card.addView(
-                progress
+                progress,
+                progressParams
         );
 
-        LinearLayout infoRow =
-                new LinearLayout(
-                        this
-                );
-
-        infoRow.setOrientation(
-                LinearLayout.HORIZONTAL
-        );
-
-        TextView percent =
+        TextView detail =
                 new TextView(
                         this
                 );
 
-        percent.setText(
-                info.percent + "%"
-        );
+        String threadText =
+                info.threadCount > 0
+                        ? info.threadCount
+                                + "线程"
+                        : "";
 
-        percent.setTextSize(
-                13
-        );
+        String activeText =
+                info.activeThreads > 0
+                        ? "（实际 "
+                                + info.activeThreads
+                                + "）"
+                        : "";
 
-        infoRow.addView(
-                percent,
-                new LinearLayout.LayoutParams(
-                        0,
-                        -2,
-                        1
-                )
-        );
-
-        TextView speed =
-                new TextView(
-                        this
-                );
-
-        speed.setText(
+        String speedText =
                 String.format(
                         java.util.Locale.US,
                         "%.2f MB/s",
                         info.speed
-                )
+                );
+
+        detail.setText(
+                info.percent
+                        + "%    "
+                        + threadText
+                        + activeText
+                        + "    "
+                        + speedText
         );
 
-        speed.setTextSize(
+        detail.setTextSize(
                 13
         );
 
-        speed.setGravity(
-                android.view.Gravity.END
-        );
-
-        infoRow.addView(
-                speed
-        );
-
         card.addView(
-                infoRow
+                detail
         );
 
         if (info.message != null
@@ -836,13 +1324,6 @@ public class MainActivity extends AppCompatActivity {
                     0xFF777777
             );
 
-            message.setPadding(
-                    0,
-                    dp(4),
-                    0,
-                    0
-            );
-
             card.addView(
                     message
             );
@@ -851,34 +1332,85 @@ public class MainActivity extends AppCompatActivity {
         return card;
     }
 
+    private void sendTaskControl(
+            String action,
+            String taskId
+    ) {
+
+        Intent intent =
+                new Intent(
+                        this,
+                        DownloadService.class
+                );
+
+        intent.setAction(
+                action
+        );
+
+        intent.putExtra(
+                DownloadService.EXTRA_TASK_ID,
+                taskId
+        );
+
+        startService(
+                intent
+        );
+    }
+
+    private void clearTaskLists() {
+
+        downloadingList.removeAllViews();
+
+        completedList.removeAllViews();
+
+        taskViews.clear();
+
+        taskInfos.clear();
+
+        updateSummary();
+    }
+
     private void updateSummary() {
 
         int total =
                 taskInfos.size();
 
-        int running =
-                0;
+        int running = 0;
 
-        int completed =
-                0;
+        int waiting = 0;
 
-        int waiting =
-                0;
+        int completed = 0;
+
+        int paused = 0;
 
         for (TaskInfo info :
                 taskInfos.values()) {
 
-            if (info.completed) {
+            if (info.completed
+                    || DownloadTask.COMPLETED.equals(
+                    info.status
+            )
+                    || DownloadTask.SKIPPED.equals(
+                    info.status
+            )) {
 
                 completed++;
 
             } else if (
-                    "RUNNING".equals(
+                    DownloadTask.RUNNING.equals(
                             info.status
                     )
             ) {
 
                 running++;
+
+            } else if (
+                    DownloadTask.PAUSED.equals(
+                            info.status
+                    )
+            ) {
+
+                paused++;
 
             } else {
 
@@ -886,17 +1418,16 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        statusText.setText(
-                "全部 "
+        summaryText.setText(
+                "任务 "
                         + total
-                        + " 个任务    "
-                        + "下载中 "
+                        + "    下载中 "
                         + running
-                        + "    "
-                        + "等待 "
+                        + "    等待 "
                         + waiting
-                        + "    "
-                        + "已完成 "
+                        + "    暂停 "
+                        + paused
+                        + "    已完成 "
                         + completed
         );
     }
@@ -912,13 +1443,13 @@ public class MainActivity extends AppCompatActivity {
                 || uri.isEmpty()) {
 
             folderText.setText(
-                    "下载目录：默认 Movies/M3U8"
+                    "保存位置：默认 Movies/M3U8"
             );
 
         } else {
 
             folderText.setText(
-                    "下载目录：已选择自定义目录"
+                    "保存位置：已选择自定义目录"
             );
         }
     }
@@ -931,7 +1462,8 @@ public class MainActivity extends AppCompatActivity {
                     this,
                     Manifest.permission
                             .POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED) {
+            ) != PackageManager
+                    .PERMISSION_GRANTED) {
 
                 notificationPermission.launch(
                         Manifest.permission
@@ -946,7 +1478,8 @@ public class MainActivity extends AppCompatActivity {
                     this,
                     Manifest.permission
                             .WRITE_EXTERNAL_STORAGE
-            ) != PackageManager.PERMISSION_GRANTED) {
+            ) != PackageManager
+                    .PERMISSION_GRANTED) {
 
                 storagePermission.launch(
                         Manifest.permission
@@ -977,9 +1510,34 @@ public class MainActivity extends AppCompatActivity {
         String message;
 
         int percent;
+        int threadCount;
+        int activeThreads;
 
         double speed;
 
         boolean completed;
+    }
+
+    private static class ViewParentHelper {
+
+        static void removeFromParent(
+                View view
+        ) {
+
+            if (view == null) {
+                return;
+            }
+
+            if (view.getParent()
+                    instanceof android.view.ViewGroup) {
+
+                (
+                        (android.view.ViewGroup)
+                                view.getParent()
+                ).removeView(
+                        view
+                );
+            }
+        }
     }
 }
