@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -16,7 +18,7 @@
             android:text="M3U8 下载器"
             android:textSize="24sp"
             android:textStyle="bold"
-            android:layout_marginBottom="12dp" />
+            android:layout_marginBottom="12dp"/>
 
         <EditText
             android:id="@+id/inputUrls"
@@ -25,55 +27,72 @@
             android:gravity="top|start"
             android:hint="每行一个：&#10;https://example.com/index.m3u8#剧名 已完结第1集&#10;&#10;支持批量粘贴"
             android:inputType="textMultiLine|textUri"
-            android:padding="12dp" />
+            android:padding="12dp"/>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="12dp">
+            android:layout_marginTop="10dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="同时下载"
-                android:gravity="center_vertical" />
+                android:gravity="center_vertical"/>
 
             <Spinner
                 android:id="@+id/episodeCountSpinner"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:entries="@array/episode_counts" />
+                android:entries="@array/episode_counts"/>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="线程"
-                android:gravity="center_vertical" />
+                android:gravity="center_vertical"/>
 
             <Spinner
                 android:id="@+id/threadCountSpinner"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:entries="@array/thread_counts" />
+                android:entries="@array/thread_counts"/>
 
         </LinearLayout>
+
+        <Button
+            android:id="@+id/chooseFolderButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="选择下载目录"
+            android:layout_marginTop="10dp"/>
+
+        <TextView
+            android:id="@+id/folderText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="下载目录：默认 Movies/M3U8"
+            android:textSize="13sp"
+            android:textColor="#666666"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"/>
 
         <Button
             android:id="@+id/startButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="开始下载"
-            android:layout_marginTop="12dp" />
+            android:layout_marginTop="6dp"/>
 
         <Button
             android:id="@+id/stopButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="停止全部下载"
-            android:enabled="false" />
+            android:enabled="false"/>
 
         <TextView
             android:id="@+id/statusText"
@@ -81,24 +100,39 @@
             android:layout_height="wrap_content"
             android:text="等待任务"
             android:textSize="15sp"
+            android:textStyle="bold"
             android:paddingTop="12dp"
-            android:paddingBottom="8dp" />
-
-        <ProgressBar
-            android:id="@+id/progressBar"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:max="100"
-            android:progress="0" />
+            android:paddingBottom="10dp"/>
 
         <TextView
-            android:id="@+id/logText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="13sp"
-            android:textIsSelectable="true"
-            android:paddingTop="12dp" />
+            android:text="下载中"
+            android:textSize="19sp"
+            android:textStyle="bold"
+            android:paddingTop="6dp"
+            android:paddingBottom="8dp"/>
+
+        <LinearLayout
+            android:id="@+id/downloadingList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="已完成"
+            android:textSize="19sp"
+            android:textStyle="bold"
+            android:paddingTop="18dp"
+            android:paddingBottom="8dp"/>
+
+        <LinearLayout
+            android:id="@+id/completedList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"/>
 
     </LinearLayout>
 
