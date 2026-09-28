@@ -18,21 +18,8 @@ import com.threew.tv.utils.ImageLoader;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
-/**
- * 播放历史卡片适配器。
- *
- * 用于“我的 / 播放历史”页面。
- *
- * 显示：
- * - 视频海报
- * - 视频名称
- * - 集数
- * - 播放进度
- * - 播放速度
- * - 最近观看时间
- * - 播放完成状态
- */
 public class HistoryCardAdapter
         extends RecyclerView.Adapter<HistoryCardAdapter.ViewHolder> {
 
@@ -204,11 +191,14 @@ public class HistoryCardAdapter
                 new TextView(context);
 
         title.setTextSize(15);
+
         title.setTypeface(
                 Typeface.DEFAULT,
                 Typeface.BOLD
         );
+
         title.setMaxLines(2);
+
         title.setEllipsize(
                 android.text.TextUtils.TruncateAt.END
         );
@@ -227,6 +217,7 @@ public class HistoryCardAdapter
         episode.setTextSize(12);
         episode.setAlpha(0.72f);
         episode.setSingleLine(true);
+
         episode.setEllipsize(
                 android.text.TextUtils.TruncateAt.END
         );
@@ -325,22 +316,19 @@ public class HistoryCardAdapter
             );
 
         } else {
-
             holder.poster.setImageDrawable(null);
         }
 
         String episodeName =
                 history.getEpisodeName();
 
-        String episodeNumber =
+        int episodeNumber =
                 history.getEpisodeNumber();
 
         StringBuilder episodeText =
                 new StringBuilder();
 
-        if (episodeNumber != null &&
-                !episodeNumber.trim().isEmpty()) {
-
+        if (episodeNumber > 0) {
             episodeText.append(
                     "第 "
             ).append(
@@ -402,8 +390,11 @@ public class HistoryCardAdapter
                 history.getSpeed() != 1.0f) {
 
             progressText.append(" · ");
+
             progressText.append(
-                    formatSpeed(history.getSpeed())
+                    formatSpeed(
+                            history.getSpeed()
+                    )
             );
         }
 
@@ -445,3 +436,58 @@ public class HistoryCardAdapter
                 );
             }
         });
+    }
+
+    private String formatSpeed(float speed) {
+        if (Math.abs(speed - Math.round(speed)) < 0.001f) {
+            return String.format(
+                    Locale.getDefault(),
+                    "%dx",
+                    Math.round(speed)
+            );
+        }
+
+        return String.format(
+                Locale.getDefault(),
+                "%.1fx",
+                speed
+        );
+    }
+
+    private int dp(int value) {
+        return (int) (
+                value
+                        * context.getResources()
+                        .getDisplayMetrics()
+                        .density
+                        + 0.5f
+        );
+    }
+
+    public static class ViewHolder
+            extends RecyclerView.ViewHolder {
+
+        private final ImageView poster;
+        private final TextView title;
+        private final TextView episode;
+        private final TextView progress;
+        private final TextView time;
+
+        public ViewHolder(
+                @NonNull View itemView,
+                ImageView poster,
+                TextView title,
+                TextView episode,
+                TextView progress,
+                TextView time
+        ) {
+            super(itemView);
+
+            this.poster = poster;
+            this.title = title;
+            this.episode = episode;
+            this.progress = progress;
+            this.time = time;
+        }
+    }
+}
