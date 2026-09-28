@@ -1,24 +1,16 @@
 package com.threew.tv.player;
 
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.Player;
-import androidx.media3.common.VideoSize;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.common.VideoSize;
 
 import java.util.Locale;
 
-/**
- * 播放器视频信息管理器。
- *
- * 负责提供当前播放视频的：
- * 分辨率、码率、文件大小、时长、进度等信息。
- */
 public class PlayerVideoInfoManager {
 
     private ExoPlayer player;
-
     private long fileSizeBytes = -1L;
-
     private String fileName;
 
     public PlayerVideoInfoManager() {
@@ -36,140 +28,66 @@ public class PlayerVideoInfoManager {
         return player;
     }
 
-    /**
-     * 设置当前文件大小。
-     */
-    public void setFileSizeBytes(long fileSizeBytes) {
-        this.fileSizeBytes = fileSizeBytes;
+    public void setFileSizeBytes(long value) {
+        fileSizeBytes = value;
     }
 
     public long getFileSizeBytes() {
         return fileSizeBytes;
     }
 
-    public void setFileName(String fileName) {
-        this.fileName = fileName;
+    public void setFileName(String value) {
+        fileName = value;
     }
 
     public String getFileName() {
         return fileName;
     }
 
-    /**
-     * 获取当前视频宽度。
-     */
     public int getWidth() {
-        if (player == null) {
-            return 0;
-        }
-
+        if (player == null) return 0;
         VideoSize size = player.getVideoSize();
-
-        if (size == null) {
-            return 0;
-        }
-
-        return size.width;
+        return size == null ? 0 : size.width;
     }
 
-    /**
-     * 获取当前视频高度。
-     */
     public int getHeight() {
-        if (player == null) {
-            return 0;
-        }
-
+        if (player == null) return 0;
         VideoSize size = player.getVideoSize();
-
-        if (size == null) {
-            return 0;
-        }
-
-        return size.height;
+        return size == null ? 0 : size.height;
     }
 
-    /**
-     * 获取当前分辨率文字。
-     */
     public String getResolutionText() {
-        int width = getWidth();
-        int height = getHeight();
-
-        if (width <= 0 || height <= 0) {
-            return "未知";
-        }
-
-        return width + "×" + height;
+        int w = getWidth();
+        int h = getHeight();
+        return w > 0 && h > 0 ? w + "×" + h : "未知";
     }
 
-    /**
-     * 获取常见画质名称。
-     */
     public String getQualityText() {
-        int height = getHeight();
+        int h = getHeight();
 
-        if (height <= 0) {
-            return "未知";
-        }
-
-        if (height >= 2160) {
-            return "4K";
-        }
-
-        if (height >= 1440) {
-            return "2K";
-        }
-
-        if (height >= 1080) {
-            return "1080P";
-        }
-
-        if (height >= 720) {
-            return "720P";
-        }
-
-        if (height >= 480) {
-            return "480P";
-        }
-
-        if (height >= 360) {
-            return "360P";
-        }
-
-        return height + "P";
+        if (h >= 2160) return "4K";
+        if (h >= 1440) return "2K";
+        if (h >= 1080) return "1080P";
+        if (h >= 720) return "720P";
+        if (h >= 480) return "480P";
+        if (h >= 360) return "360P";
+        return h > 0 ? h + "P" : "未知";
     }
 
-    /**
-     * 获取当前视频码率。
-     */
     public int getBitrate() {
-        if (player == null) {
-            return 0;
-        }
+        if (player == null) return 0;
 
         try {
             Format format = player.getVideoFormat();
-
-            if (format == null) {
-                return 0;
-            }
-
-            return format.bitrate;
+            return format == null ? 0 : format.bitrate;
         } catch (Exception e) {
             return 0;
         }
     }
 
-    /**
-     * 获取当前视频码率文字。
-     */
     public String getBitrateText() {
         int bitrate = getBitrate();
-
-        if (bitrate <= 0) {
-            return "";
-        }
+        if (bitrate <= 0) return "";
 
         if (bitrate >= 1_000_000) {
             return String.format(
@@ -182,174 +100,101 @@ public class PlayerVideoInfoManager {
         return (bitrate / 1000) + " kbps";
     }
 
-    /**
-     * 获取文件大小文字。
-     */
     public String getFileSizeText() {
-        if (fileSizeBytes <= 0) {
-            return "";
-        }
-
-        return formatBytes(fileSizeBytes);
+        return fileSizeBytes > 0 ? formatBytes(fileSizeBytes) : "";
     }
 
-    /**
-     * 获取当前播放位置。
-     */
     public long getPositionMs() {
-        if (player == null) {
-            return 0L;
-        }
-
-        return Math.max(0L, player.getCurrentPosition());
+        return player == null
+                ? 0L
+                : Math.max(0L, player.getCurrentPosition());
     }
 
-    /**
-     * 获取总时长。
-     */
     public long getDurationMs() {
-        if (player == null) {
-            return 0L;
-        }
+        if (player == null) return 0L;
 
         long duration = player.getDuration();
 
-        if (duration == Player.TIME_UNSET || duration < 0) {
+        if (duration == C.TIME_UNSET || duration < 0) {
             return 0L;
         }
 
         return duration;
     }
 
-    /**
-     * 获取剩余时长。
-     */
     public long getRemainingMs() {
         long duration = getDurationMs();
-
-        if (duration <= 0) {
-            return 0L;
-        }
-
-        return Math.max(
-                0L,
-                duration - getPositionMs()
-        );
+        return duration <= 0
+                ? 0L
+                : Math.max(0L, duration - getPositionMs());
     }
 
-    /**
-     * 获取播放进度百分比。
-     */
     public int getProgressPercent() {
         long duration = getDurationMs();
-
-        if (duration <= 0) {
-            return 0;
-        }
-
-        long position = getPositionMs();
+        if (duration <= 0) return 0;
 
         return (int) Math.max(
                 0,
                 Math.min(
                         100,
                         Math.round(
-                                position * 100.0 /
-                                        duration
+                                getPositionMs() * 100.0 / duration
                         )
                 )
         );
     }
 
-    /**
-     * 获取左下角播放器信息。
-     *
-     * 示例：
-     * 1920×1080 · 2450 kbps · 1.2 GB
-     */
     public String getDisplayText() {
-        StringBuilder builder = new StringBuilder();
+        StringBuilder b = new StringBuilder();
 
         String resolution = getResolutionText();
-
         if (!"未知".equals(resolution)) {
-            builder.append(resolution);
+            b.append(resolution);
         }
 
         String bitrate = getBitrateText();
-
         if (!bitrate.isEmpty()) {
-            if (builder.length() > 0) {
-                builder.append(" · ");
-            }
-
-            builder.append(bitrate);
-        }
-
-        String fileSize = getFileSizeText();
-
-        if (!fileSize.isEmpty()) {
-            if (builder.length() > 0) {
-                builder.append(" · ");
-            }
-
-            builder.append(fileSize);
-        }
-
-        if (builder.length() == 0) {
-            return "视频信息未知";
-        }
-
-        return builder.toString();
-    }
-
-    /**
-     * 获取完整视频信息。
-     */
-    public String getFullInfo() {
-        StringBuilder builder = new StringBuilder();
-
-        if (fileName != null && !fileName.trim().isEmpty()) {
-            builder.append(fileName.trim());
-        }
-
-        String quality = getQualityText();
-
-        if (!"未知".equals(quality)) {
-            appendLine(builder, "画质", quality);
-        }
-
-        appendLine(
-                builder,
-                "分辨率",
-                getResolutionText()
-        );
-
-        String bitrate = getBitrateText();
-
-        if (!bitrate.isEmpty()) {
-            appendLine(builder, "码率", bitrate);
+            if (b.length() > 0) b.append(" · ");
+            b.append(bitrate);
         }
 
         String size = getFileSizeText();
-
         if (!size.isEmpty()) {
-            appendLine(builder, "文件大小", size);
+            if (b.length() > 0) b.append(" · ");
+            b.append(size);
         }
 
-        appendLine(
-                builder,
-                "时长",
-                formatDuration(getDurationMs())
-        );
+        return b.length() == 0 ? "视频信息未知" : b.toString();
+    }
 
-        appendLine(
-                builder,
-                "进度",
-                getProgressPercent() + "%"
-        );
+    public String getFullInfo() {
+        StringBuilder b = new StringBuilder();
 
-        return builder.toString();
+        if (fileName != null && !fileName.trim().isEmpty()) {
+            b.append(fileName.trim());
+        }
+
+        String quality = getQualityText();
+        if (!"未知".equals(quality)) {
+            appendLine(b, "画质", quality);
+        }
+
+        appendLine(b, "分辨率", getResolutionText());
+
+        String bitrate = getBitrateText();
+        if (!bitrate.isEmpty()) {
+            appendLine(b, "码率", bitrate);
+        }
+
+        String size = getFileSizeText();
+        if (!size.isEmpty()) {
+            appendLine(b, "文件大小", size);
+        }
+
+        appendLine(b, "时长", formatDuration(getDurationMs()));
+        appendLine(b, "进度", getProgressPercent() + "%");
+
+        return b.toString();
     }
 
     private void appendLine(
@@ -357,9 +202,7 @@ public class PlayerVideoInfoManager {
             String name,
             String value
     ) {
-        if (value == null || value.isEmpty()) {
-            return;
-        }
+        if (value == null || value.isEmpty()) return;
 
         if (builder.length() > 0) {
             builder.append("\n");
@@ -370,19 +213,13 @@ public class PlayerVideoInfoManager {
                 .append(value);
     }
 
-    /**
-     * 格式化时长。
-     */
     public String formatDuration(long durationMs) {
-        if (durationMs <= 0) {
-            return "00:00";
-        }
+        if (durationMs <= 0) return "00:00";
 
-        long totalSeconds = durationMs / 1000L;
-
-        long hours = totalSeconds / 3600L;
-        long minutes = (totalSeconds % 3600L) / 60L;
-        long seconds = totalSeconds % 60L;
+        long seconds = durationMs / 1000L;
+        long hours = seconds / 3600L;
+        long minutes = (seconds % 3600L) / 60L;
+        long remain = seconds % 60L;
 
         if (hours > 0) {
             return String.format(
@@ -390,7 +227,7 @@ public class PlayerVideoInfoManager {
                     "%02d:%02d:%02d",
                     hours,
                     minutes,
-                    seconds
+                    remain
             );
         }
 
@@ -398,31 +235,22 @@ public class PlayerVideoInfoManager {
                 Locale.US,
                 "%02d:%02d",
                 minutes,
-                seconds
+                remain
         );
     }
 
-    /**
-     * 格式化文件大小。
-     */
     public String formatBytes(long bytes) {
-        if (bytes <= 0) {
-            return "0 B";
-        }
+        if (bytes <= 0) return "0 B";
 
-        final String[] units = {
-                "B",
-                "KB",
-                "MB",
-                "GB",
-                "TB"
+        String[] units = {
+                "B", "KB", "MB", "GB", "TB"
         };
 
         double value = bytes;
         int index = 0;
 
-        while (value >= 1024.0
-                && index < units.length - 1) {
+        while (value >= 1024.0 &&
+                index < units.length - 1) {
             value /= 1024.0;
             index++;
         }
@@ -457,21 +285,12 @@ public class PlayerVideoInfoManager {
         );
     }
 
-    /**
-     * 判断是否已经播放结束。
-     */
     public boolean isEnded() {
-        if (player == null) {
-            return false;
-        }
-
-        return player.getPlaybackState()
-                == Player.STATE_ENDED;
+        return player != null &&
+                player.getPlaybackState() ==
+                        androidx.media3.common.Player.STATE_ENDED;
     }
 
-    /**
-     * 判断当前是否正在播放。
-     */
     public boolean isPlaying() {
         return player != null && player.isPlaying();
     }
