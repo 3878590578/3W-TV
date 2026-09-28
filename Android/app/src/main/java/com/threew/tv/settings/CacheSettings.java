@@ -115,15 +115,11 @@ public class CacheSettings {
     }
 
     public boolean isTimeMode() {
-        return MODE_TIME.equals(
-                getMode()
-        );
+        return MODE_TIME.equals(getMode());
     }
 
     public boolean isSizeMode() {
-        return MODE_SIZE.equals(
-                getMode()
-        );
+        return MODE_SIZE.equals(getMode());
     }
 
     public int calculateActualMinutes(
@@ -151,6 +147,56 @@ public class CacheSettings {
 
     public long calculateTargetBytes() {
         return getTargetBytes();
+    }
+
+    public long calculateTargetBytes(
+            long durationMs,
+            long positionMs
+    ) {
+        long remainingMs =
+                Math.max(
+                        0L,
+                        durationMs - positionMs
+                );
+
+        if (isSizeMode()) {
+            return getTargetBytes();
+        }
+
+        long targetMs =
+                getTargetDurationMs();
+
+        if (remainingMs <= 0L) {
+            return 0L;
+        }
+
+        long effectiveMs =
+                Math.min(
+                        remainingMs,
+                        targetMs
+                );
+
+        if (durationMs <= 0L ||
+                positionMs < 0L ||
+                positionMs >= durationMs) {
+            return 0L;
+        }
+
+        long targetBytes =
+                getTargetBytes();
+
+        if (targetMs <= 0L) {
+            return targetBytes;
+        }
+
+        return Math.max(
+                0L,
+                Math.round(
+                        targetBytes *
+                                (effectiveMs /
+                                        (double) targetMs)
+                )
+        );
     }
 
     public long getTargetDurationMs() {
