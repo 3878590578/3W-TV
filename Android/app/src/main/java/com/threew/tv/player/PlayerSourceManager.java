@@ -1,5 +1,6 @@
 package com.threew.tv.player;
 
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 
@@ -7,15 +8,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * 播放源管理器
- *
- * 负责播放器当前可用的视频源以及源切换。
- */
 public class PlayerSourceManager {
 
     public static class SourceItem {
-
         private final String id;
         private final String name;
         private final String url;
@@ -56,10 +51,7 @@ public class PlayerSourceManager {
     }
 
     private Player player;
-
-    private final List<SourceItem> sources =
-            new ArrayList<>();
-
+    private final List<SourceItem> sources = new ArrayList<>();
     private int selectedIndex = -1;
 
     public PlayerSourceManager() {
@@ -77,31 +69,27 @@ public class PlayerSourceManager {
         return player;
     }
 
-    public void setSources(
-            List<SourceItem> items
-    ) {
+    public void setSources(List<SourceItem> items) {
         sources.clear();
 
         if (items != null) {
             for (SourceItem item : items) {
-                if (item != null) {
-                    sources.add(item);
-                }
+                if (item != null) sources.add(item);
             }
         }
 
         if (sources.isEmpty()) {
             selectedIndex = -1;
-        } else if (selectedIndex < 0 ||
-                selectedIndex >= sources.size()) {
+        } else if (
+                selectedIndex < 0 ||
+                selectedIndex >= sources.size()
+        ) {
             selectedIndex = 0;
         }
     }
 
     public void addSource(SourceItem source) {
-        if (source == null) {
-            return;
-        }
+        if (source == null) return;
 
         sources.add(source);
 
@@ -111,19 +99,13 @@ public class PlayerSourceManager {
     }
 
     public void removeSource(int index) {
-        if (index < 0 ||
-                index >= sources.size()) {
-            return;
-        }
+        if (index < 0 || index >= sources.size()) return;
 
         sources.remove(index);
 
         if (sources.isEmpty()) {
             selectedIndex = -1;
-            return;
-        }
-
-        if (selectedIndex >= sources.size()) {
+        } else if (selectedIndex >= sources.size()) {
             selectedIndex = sources.size() - 1;
         }
     }
@@ -139,8 +121,7 @@ public class PlayerSourceManager {
     }
 
     public SourceItem getSource(int index) {
-        if (index < 0 ||
-                index >= sources.size()) {
+        if (index < 0 || index >= sources.size()) {
             return null;
         }
 
@@ -156,8 +137,7 @@ public class PlayerSourceManager {
     }
 
     public boolean selectSource(int index) {
-        if (index < 0 ||
-                index >= sources.size()) {
+        if (index < 0 || index >= sources.size()) {
             return false;
         }
 
@@ -166,14 +146,10 @@ public class PlayerSourceManager {
     }
 
     public boolean selectSourceById(String id) {
-        if (id == null) {
-            return false;
-        }
+        if (id == null) return false;
 
         for (int i = 0; i < sources.size(); i++) {
-            SourceItem item = sources.get(i);
-
-            if (id.equals(item.getId())) {
+            if (id.equals(sources.get(i).getId())) {
                 selectedIndex = i;
                 return true;
             }
@@ -187,9 +163,7 @@ public class PlayerSourceManager {
     }
 
     public boolean switchToSource(int index) {
-        if (!selectSource(index)) {
-            return false;
-        }
+        if (!selectSource(index)) return false;
 
         SourceItem source = getSelectedSource();
 
@@ -200,31 +174,21 @@ public class PlayerSourceManager {
             return false;
         }
 
-        MediaItem mediaItem =
-                MediaItem.fromUri(
-                        source.getUrl()
-                );
+        long position = player.getCurrentPosition();
 
-        long position =
-                player.getCurrentPosition();
-
-        if (position == Player.TIME_UNSET) {
+        if (position == C.TIME_UNSET || position < 0) {
             position = 0L;
         }
 
-        boolean wasPlaying =
-                player.getPlayWhenReady();
+        boolean wasPlaying = player.getPlayWhenReady();
 
         player.setMediaItem(
-                mediaItem,
-                Math.max(0L, position)
+                MediaItem.fromUri(source.getUrl()),
+                position
         );
 
         player.prepare();
-
-        player.setPlayWhenReady(
-                wasPlaying
-        );
+        player.setPlayWhenReady(wasPlaying);
 
         return true;
     }
