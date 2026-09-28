@@ -1,11 +1,13 @@
 package com.m3u8.downloader;
 
+import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
-import android.database.Cursor;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 
 import java.io.File;
@@ -15,57 +17,118 @@ import java.io.OutputStream;
 
 public final class FileUtils {
 
+    private static final String PREFS_NAME =
+            "m3u8_downloader_settings";
+
+    private static final String KEY_DOWNLOAD_TREE_URI =
+            "download_tree_uri";
+
     private FileUtils() {
     }
 
+    // ============================================================
+    // 文件名处理
+    // ============================================================
+
     public static String safeFileName(String name) {
 
-        if (name == null
-                || name.trim().isEmpty()) {
-
+        if (name == null || name.trim().isEmpty()) {
             name = "video";
         }
 
-        String result =
-                name.trim();
+        String result = name.trim();
 
-        result =
-                result.replaceAll(
-                        "[\\\\/:*?\"<>|]",
-                        "_"
-                );
+        result = result.replaceAll(
+                "[\\\\/:*?\"<>|]",
+                "_"
+        );
 
-        result =
-                result.replaceAll(
-                        "[\\r\\n]",
-                        " "
-                );
+        result = result.replaceAll(
+                "[\\r\\n]",
+                " "
+        );
 
-        result =
-                result.replaceAll(
-                        "\\s+",
-                        " "
-                );
+        result = result.replaceAll(
+                "\\s+",
+                " "
+        );
 
-        if (!result
-                .toLowerCase()
-                .endsWith(".mp4")) {
-
+        if (!result.toLowerCase().endsWith(".mp4")) {
             result += ".mp4";
         }
 
         return result;
     }
 
+    // ============================================================
+    // 下载目录 URI 保存
+    // ============================================================
+
+    public static void setDownloadTreeUri(
+            Context context,
+            String uriString
+    ) {
+
+        if (context == null) {
+            return;
+        }
+
+        SharedPreferences prefs =
+                context.getSharedPreferences(
+                        PREFS_NAME,
+                        Context.MODE_PRIVATE
+                );
+
+        if (uriString == null
+                || uriString.trim().isEmpty()) {
+
+            prefs.edit()
+                    .remove(KEY_DOWNLOAD_TREE_URI)
+                    .apply();
+
+            return;
+        }
+
+        prefs.edit()
+                .putString(
+                        KEY_DOWNLOAD_TREE_URI,
+                        uriString
+                )
+                .apply();
+    }
+
+    public static String getDownloadTreeUri(
+            Context context
+    ) {
+
+        if (context == null) {
+            return null;
+        }
+
+        SharedPreferences prefs =
+                context.getSharedPreferences(
+                        PREFS_NAME,
+                        Context.MODE_PRIVATE
+                );
+
+        return prefs.getString(
+                KEY_DOWNLOAD_TREE_URI,
+                null
+        );
+    }
+
+    // ============================================================
+    // 下载临时目录
+    // ============================================================
+
     public static File getTempDirectory(
             Context context
     ) {
 
-        File dir =
-                new File(
-                        context.getCacheDir(),
-                        "m3u8_downloads"
-                );
+        File dir = new File(
+                context.getCacheDir(),
+                "m3u8_downloads"
+        );
 
         if (!dir.exists()) {
             dir.mkdirs();
@@ -80,67 +143,114 @@ public final class FileUtils {
     ) {
 
         File dir =
-                getTempDirectory(
-                        context
-                );
+                getTempDirectory(context);
 
         return new File(
                 dir,
-                "." + safeFileName(name)
-                        + ".tmp"
+                "." + safeFileName(name) + ".tmp"
         );
     }
 
-    /**
-     * 检查最终视频是否已经存在。
-     *
-     * Android 10+：
-     * 检查 Movies/M3U8。
-     *
-     * Android 9 及以下：
-     * 检查 Movies/M3U8 文件夹。
-     */
+    // ============================================================
+    // 同名文件检测
+    // ============================================================
+
     public static boolean videoExists(
             Context context,
             String displayName
     ) {
 
         String fileName =
-                safeFileName(
-                        displayName
-                );
+                safeFileName(displayName);
 
-        if (Build.VERSION.SDK_INT
-                >= Build.VERSION_CODES.Q) {
+        // --------------------------------------------------------
+        // 用户选择的目录
+        // --------------------------------------------------------
 
-            Cursor cursor = null;
+        String treeUriString =
+                getDownloadTreeUri(context);
+
+        if (treeUriString != null
+                && !treeUriString.trim().isEmpty()) {
 
             try {
 
-                String selection =
-                        MediaStore.Video.Media.DISPLAY_NAME
-                                + "=? AND "
-                                + MediaStore.Video.Media.RELATIVE_PATH
-                                + "=? AND "
-                                + MediaStore.Video.Media.IS_PENDING
-                                + "=0";
+                Uri treeUri =
+                        Uri.parse(treeUriString);
 
-                String[] args = {
-                        fileName,
+                Uri documentUri =
+                        DocumentsContract.buildChildDocumentsUriUsingTree(
+                                treeUri,
+                                DocumentsContract.getTreeDocumentId(
+                                        treeUri
+                                )
+                        );
+
+                ContentResolver resolver =
+                        context.getContentResolver();
+
+                android.database.Cursor cursor =
+                        resolver.query(
+                                documentUri,
+                                new String[]{
+                                        DocumentsContract.Document.COLUMN_DISPLAY_NAME
+                                },
+                                DocumentsContract.Document.COLUMN_DISPLAY_NAME
+                                        + "=?",
+                                new String[]{
+                                        fileName
+                                },
+                                null
+                        );
+
+                if (cursor != null) {
+
+                    try {
+
+                        if (cursor.moveToFirst()) {
+                            return true;
+                        }
+
+                    } finally {
+                        cursor.close();
+                    }
+                }
+
+            } catch (Exception ignored) {
+            }
+        }
+
+        // --------------------------------------------------------
+        // Android 10+ 默认 Movies/M3U8
+        // --------------------------------------------------------
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+
+            android.database.Cursor cursor = null;
+
+            try {
+
+                String relativePath =
                         Environment.DIRECTORY_MOVIES
-                                + "/M3U8/"
-                };
+                                + "/M3U8/";
 
                 cursor =
                         context.getContentResolver()
                                 .query(
-                                        MediaStore.Video.Media
-                                                .EXTERNAL_CONTENT_URI,
+                                        MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
                                         new String[]{
                                                 MediaStore.Video.Media._ID
                                         },
-                                        selection,
-                                        args,
+                                        MediaStore.Video.Media.DISPLAY_NAME
+                                                + "=? AND "
+                                                + MediaStore.Video.Media.RELATIVE_PATH
+                                                + "=? AND "
+                                                + MediaStore.Video.Media.IS_PENDING
+                                                + "=0",
+                                        new String[]{
+                                                fileName,
+                                                relativePath
+                                        },
                                         null
                                 );
 
@@ -157,28 +267,46 @@ public final class FileUtils {
                     cursor.close();
                 }
             }
+        }
 
-        } else {
+        // --------------------------------------------------------
+        // Android 9 及以下默认 Movies/M3U8
+        // --------------------------------------------------------
 
-            File movies =
-                    Environment
-                            .getExternalStoragePublicDirectory(
-                                    Environment.DIRECTORY_MOVIES
-                            );
+        File movies =
+                Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_MOVIES
+                );
 
-            File target =
-                    new File(
-                            new File(
-                                    movies,
-                                    "M3U8"
-                            ),
-                            fileName
-                    );
+        File target =
+                new File(
+                        new File(
+                                movies,
+                                "M3U8"
+                        ),
+                        fileName
+                );
 
-            return target.exists()
-                    && target.length() > 0;
+        return target.exists();
+    }
+
+    // ============================================================
+    // 同名文件异常
+    // ============================================================
+
+    public static class SameFileException
+            extends IOException {
+
+        public SameFileException(
+                String message
+        ) {
+            super(message);
         }
     }
+
+    // ============================================================
+    // 发布视频
+    // ============================================================
 
     public static void publishVideo(
             Context context,
@@ -187,28 +315,45 @@ public final class FileUtils {
     ) throws IOException {
 
         String fileName =
-                safeFileName(
-                        displayName
-                );
+                safeFileName(displayName);
 
-        /*
-         * 二次保险：
-         * 如果同名文件已经存在，
-         * 不覆盖。
-         */
-        if (videoExists(
-                context,
-                displayName
-        )) {
+        // ========================================================
+        // 优先使用用户选择的目录
+        // ========================================================
 
-            throw new SameFileException(
-                    "同名文件已存在："
-                            + fileName
+        String treeUriString =
+                getDownloadTreeUri(context);
+
+        if (treeUriString != null
+                && !treeUriString.trim().isEmpty()) {
+
+            publishToTree(
+                    context,
+                    source,
+                    fileName,
+                    Uri.parse(treeUriString)
             );
+
+            return;
         }
 
-        if (Build.VERSION.SDK_INT
-                >= Build.VERSION_CODES.Q) {
+        // ========================================================
+        // Android 10+
+        // 默认 Movies/M3U8
+        // ========================================================
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+
+            if (videoExists(
+                    context,
+                    fileName
+            )) {
+
+                throw new SameFileException(
+                        "同名文件已存在："
+                                + fileName
+                );
+            }
 
             ContentValues values =
                     new ContentValues();
@@ -238,8 +383,7 @@ public final class FileUtils {
                     context
                             .getContentResolver()
                             .insert(
-                                    MediaStore.Video.Media
-                                            .EXTERNAL_CONTENT_URI,
+                                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
                                     values
                             );
 
@@ -255,9 +399,7 @@ public final class FileUtils {
                 copyFile(
                         source,
                         context.getContentResolver()
-                                .openOutputStream(
-                                        uri
-                                )
+                                .openOutputStream(uri)
                 );
 
                 ContentValues done =
@@ -295,51 +437,205 @@ public final class FileUtils {
                 );
             }
 
-        } else {
+            return;
+        }
 
-            File movies =
-                    Environment
-                            .getExternalStoragePublicDirectory(
-                                    Environment.DIRECTORY_MOVIES
-                            );
+        // ========================================================
+        // Android 9 及以下
+        // ========================================================
 
-            File directory =
-                    new File(
-                            movies,
-                            "M3U8"
+        File movies =
+                Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_MOVIES
+                );
+
+        File directory =
+                new File(
+                        movies,
+                        "M3U8"
+                );
+
+        if (!directory.exists()
+                && !directory.mkdirs()) {
+
+            throw new IOException(
+                    "无法创建保存目录"
+            );
+        }
+
+        File target =
+                new File(
+                        directory,
+                        fileName
+                );
+
+        if (target.exists()) {
+
+            throw new SameFileException(
+                    "同名文件已存在："
+                            + fileName
+            );
+        }
+
+        copyFile(
+                source,
+                new FileOutputStream(target)
+        );
+    }
+
+    // ============================================================
+    // 保存到用户选择的目录
+    // ============================================================
+
+    private static void publishToTree(
+            Context context,
+            File source,
+            String fileName,
+            Uri treeUri
+    ) throws IOException {
+
+        ContentResolver resolver =
+                context.getContentResolver();
+
+        // --------------------------------------------------------
+        // 先检查同名
+        // --------------------------------------------------------
+
+        if (treeFileExists(
+                context,
+                treeUri,
+                fileName
+        )) {
+
+            throw new SameFileException(
+                    "同名文件已存在："
+                            + fileName
+            );
+        }
+
+        Uri fileUri = null;
+
+        try {
+
+            String documentId =
+                    DocumentsContract.getTreeDocumentId(
+                            treeUri
                     );
 
-            if (!directory.exists()
-                    && !directory.mkdirs()) {
+            Uri directoryUri =
+                    DocumentsContract.buildDocumentUriUsingTree(
+                            treeUri,
+                            documentId
+                    );
 
-                throw new IOException(
-                        "无法创建保存目录"
-                );
-            }
-
-            File target =
-                    new File(
-                            directory,
+            fileUri =
+                    DocumentsContract.createDocument(
+                            resolver,
+                            directoryUri,
+                            "video/mp4",
                             fileName
                     );
 
-            if (target.exists()
-                    && target.length() > 0) {
+            if (fileUri == null) {
 
-                throw new SameFileException(
-                        "同名文件已存在："
-                                + fileName
+                throw new IOException(
+                        "无法创建目标文件"
                 );
             }
 
             copyFile(
                     source,
-                    new FileOutputStream(
-                            target
-                    )
+                    resolver.openOutputStream(fileUri)
+            );
+
+        } catch (SameFileException e) {
+
+            throw e;
+
+        } catch (Exception e) {
+
+            if (fileUri != null) {
+
+                try {
+                    resolver.delete(
+                            fileUri,
+                            null,
+                            null
+                    );
+                } catch (Exception ignored) {
+                }
+            }
+
+            if (e instanceof IOException) {
+                throw (IOException) e;
+            }
+
+            throw new IOException(
+                    "保存视频失败",
+                    e
             );
         }
     }
+
+    // ============================================================
+    // SAF 目录同名检查
+    // ============================================================
+
+    private static boolean treeFileExists(
+            Context context,
+            Uri treeUri,
+            String fileName
+    ) {
+
+        ContentResolver resolver =
+                context.getContentResolver();
+
+        android.database.Cursor cursor =
+                null;
+
+        try {
+
+            Uri childrenUri =
+                    DocumentsContract
+                            .buildChildDocumentsUriUsingTree(
+                                    treeUri,
+                                    DocumentsContract.getTreeDocumentId(
+                                            treeUri
+                                    )
+                            );
+
+            cursor =
+                    resolver.query(
+                            childrenUri,
+                            new String[]{
+                                    DocumentsContract.Document.COLUMN_DISPLAY_NAME
+                            },
+                            DocumentsContract.Document.COLUMN_DISPLAY_NAME
+                                    + "=?",
+                            new String[]{
+                                    fileName
+                            },
+                            null
+                    );
+
+            return cursor != null
+                    && cursor.moveToFirst();
+
+        } catch (Exception e) {
+
+            return false;
+
+        } finally {
+
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+    }
+
+    // ============================================================
+    // 文件复制
+    // ============================================================
 
     private static void copyFile(
             File source,
@@ -353,28 +649,19 @@ public final class FileUtils {
             );
         }
 
-        try (
-                OutputStream out = output;
-                java.io.InputStream input =
-                        new java.io.BufferedInputStream(
-                                new java.io.FileInputStream(
-                                        source
-                                )
-                        )
-        ) {
+        try (OutputStream out = output;
+             java.io.InputStream input =
+                     new java.io.BufferedInputStream(
+                             new java.io.FileInputStream(source)
+                     )) {
 
             byte[] buffer =
-                    new byte[
-                            1024 * 1024
-                    ];
+                    new byte[1024 * 1024];
 
             int count;
 
-            while (
-                    (count =
-                            input.read(buffer))
-                            != -1
-            ) {
+            while ((count =
+                    input.read(buffer)) != -1) {
 
                 out.write(
                         buffer,
@@ -384,17 +671,6 @@ public final class FileUtils {
             }
 
             out.flush();
-        }
-    }
-
-    public static class SameFileException
-            extends IOException {
-
-        public SameFileException(
-                String message
-        ) {
-
-            super(message);
         }
     }
 }
