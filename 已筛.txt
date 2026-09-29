@@ -1,3 +1,9 @@
+154.3.39.40#HK Hong Kong AS906 DMIT Cloud Service - Los Angeles
+42.200.173.201#HK Hong Kong AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
+42.200.176.163#HK Hong Kong AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
+42.200.176.168#HK Hong Kong AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
+42.200.231.108#HK Hong Kong AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
+114.34.210.159#TW Taiwan AS3462 Chunghwa Telecom Data Communication Business Group
 3.0.245.30#SG Singapore AS16509 Amazon.com, Inc.
 3.1.187.169#SG Singapore AS16509 Amazon.com, Inc.
 13.212.31.121#SG Singapore AS16509 Amazon.com, Inc.
@@ -59,8 +65,45 @@
 56.10.67.92#SG Singapore AS16509 Amazon.com, Inc.
 122.248.238.214#SG Singapore AS16509 Amazon.com, Inc.
 175.41.159.44#SG Singapore AS16509 Amazon.com, Inc.
+36.50.85.6#JP Japan AS3258 Hostsymbol Pte. Ltd
+45.94.40.102#JP Japan AS3258 xTom Japan Corporation
+45.128.210.34#JP Japan AS3258 xTom Japan Corporation
+45.129.8.49#JP Japan AS3258 xTom Japan Corporation
+45.142.125.14#JP Japan AS3258 xTom Japan Corporation
+45.142.127.24#JP Japan AS3258 xTom Japan Corporation
+45.142.166.211#JP Japan AS3258 xTom
+45.143.235.120#JP Japan AS3258 xTom Japan Corporation
+45.153.246.5#JP Japan AS3258 xTom Japan Corporation
+45.153.247.195#JP Japan AS3258 xTom Japan Corporation
+91.200.243.225#JP Japan AS3258 xTom Japan Corporation
+103.47.186.75#JP Japan AS3258 Hostsymbol Pte. Ltd.
+103.47.186.130#JP Japan AS3258 Hostsymbol Pte. Ltd.
+103.47.186.135#JP Japan AS3258 Hostsymbol Pte. Ltd.
+103.53.80.84#JP Japan AS3258 Hostsymbol Pte. Ltd.
+103.53.80.239#JP Japan AS3258 Hostsymbol Pte. Ltd.
+103.201.130.126#JP Japan AS3258 xTom Japan Corporation
+109.107.140.90#JP Japan AS3258 xTom
+141.98.197.42#JP Japan AS3258 xTom
+149.62.44.41#JP Japan AS3258 xTom Japan Corporation
+185.200.64.148#JP Japan AS3258 xTom Japan Corporation
+195.245.242.188#JP Japan AS3258 xTom Japan Corporation
+45.59.186.102#US United States AS906 DMIT Cloud Services
+45.59.187.125#US United States AS906 DMIT Cloud Services
+64.186.227.15#US United States AS906 DMIT Cloud Services
+64.186.228.225#US United States AS906 DMIT Cloud Services
+64.186.241.132#US United States AS906 Private Customer
+64.186.245.27#US United States AS906 DMIT Cloud Services
+69.63.221.164#US United States AS906 DMIT Cloud Services
+154.17.26.99#US United States AS906 DMIT Cloud Services
 154.17.29.72#US United States AS906 DMIT Cloud Services
+154.17.31.116#US United States AS906 DMIT Cloud Services
+154.21.82.24#US United States AS906 Private Customer
 154.26.184.229#US United States AS906 DMIT Cloud Services
+154.26.189.91#US United States AS906 DMIT Cloud Services
+174.136.205.28#US United States AS906 DMIT Cloud Services
+216.234.141.64#US United States AS906 DMIT Cloud Services
+216.234.141.92#US United States AS906 DMIT Cloud Services
+216.234.142.42#US United States AS906 DMIT Cloud Services
 13.126.206.240#IN India AS16509 Amazon.com, Inc.
 13.200.106.232#IN India AS16509 Amazon.com, Inc.
 13.233.174.246#IN India AS16509 Amazon.com, Inc.
