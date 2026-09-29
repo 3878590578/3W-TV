@@ -157,10 +157,10 @@ def check_proxy(ip):
 
     try:
         response = requests.get(
-            url,
-            params={"ip": ip},
-            timeout=30
-        )
+    url,
+    params={"proxyip": f"{ip}:443"},
+    timeout=30
+)
 
         if response.status_code != 200:
             print(
