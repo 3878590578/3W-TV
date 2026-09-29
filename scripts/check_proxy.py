@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 WORKER_URL = "https://ip-jc.mofa.kdns.fr"
 
 MAX_WORKERS = 16
+
 TIMEOUT = 30
 
 
@@ -32,7 +33,7 @@ COUNTRY_ORDER = {
 
 
 # ============================================================
-# 国家名称 → 国家代码
+# 国家名称转换
 # ============================================================
 
 COUNTRY_MAP = {
@@ -60,88 +61,178 @@ COUNTRY_MAP = {
 
 
 # ============================================================
-# 读取输入
+# 从一行中提取 IPv4
+#
+# 支持：
+#
+# 47.131.189.221
+#
+# 47.131.189.221:443
+#
+# 47.131.189.221:443#SG Singapore AS16509 Amazon.com, Inc.
 # ============================================================
 
-def read_input_file(path):
-    """
-    支持：
+def extract_ip(line):
 
-    18.138.57.221:443
+    if not line:
+        return None
 
-    18.138.57.221:443#备注
+    line = line.strip()
 
-    18.138.57.221
-    """
+    if not line:
+        return None
+
+    # 去掉 # 后面的备注
+    if "#" in line:
+        line = line.split("#", 1)[0].strip()
+
+    # 如果有端口，只取 IP
+    if ":" in line:
+        line = line.split(":", 1)[0].strip()
+
+    # 严格 IPv4
+    match = re.fullmatch(
+        r"\d{1,3}(?:\.\d{1,3}){3}",
+        line
+    )
+
+    if not match:
+        return None
+
+    try:
+
+        ip_obj = ipaddress.ip_address(line)
+
+        if ip_obj.version != 4:
+            return None
+
+    except Exception:
+
+        return None
+
+    return line
+
+
+# ============================================================
+# 从文件读取 IP
+#
+# 三国.txt：
+# 纯 IP
+#
+# 已筛.txt：
+# IP:端口#备注
+#
+# 最终全部只提取 IP
+# ============================================================
+
+def read_ips(path):
 
     result = []
 
     try:
-        with open(path, "r", encoding="utf-8") as f:
+
+        with open(
+            path,
+            "r",
+            encoding="utf-8"
+        ) as f:
+
             lines = f.readlines()
+
+    except FileNotFoundError:
+
+        print(
+            f"[提示] 文件不存在：{path}"
+        )
+
+        return result
+
     except Exception as e:
-        print(f"读取文件失败：{e}")
+
+        print(
+            f"[错误] 读取 {path} 失败：{e}"
+        )
+
         return result
 
     for line in lines:
 
-        line = line.strip()
+        ip = extract_ip(line)
 
-        if not line:
-            continue
+        if ip:
 
-        # 去掉旧备注
-        if "#" in line:
-            line = line.split("#", 1)[0].strip()
+            result.append(ip)
 
-        # IP:PORT
-        match = re.match(
-            r"^(\d{1,3}(?:\.\d{1,3}){3}):(\d+)$",
-            line
-        )
-
-        if match:
-            ip = match.group(1)
-            port = match.group(2)
-
-        else:
-            # 只有 IP，默认 443
-            match = re.match(
-                r"^(\d{1,3}(?:\.\d{1,3}){3})$",
-                line
-            )
-
-            if not match:
-                continue
-
-            ip = match.group(1)
-            port = "443"
-
-        # 检查 IPv4
-        try:
-            ipaddress.ip_address(ip)
-        except Exception:
-            continue
-
-        result.append(f"{ip}:{port}")
-
-    # 去重
-    result = list(dict.fromkeys(result))
+    # 去重，同时保持原始顺序
+    result = list(
+        dict.fromkeys(result)
+    )
 
     return result
 
 
 # ============================================================
-# 国家代码
+# 合并两个 IP 来源
+#
+# 三国.txt
+# +
+# 已筛.txt
+#
+# 去重
+# ============================================================
+
+def merge_ips(
+    source_file,
+    old_filtered_file
+):
+
+    source_ips = read_ips(
+        source_file
+    )
+
+    old_ips = read_ips(
+        old_filtered_file
+    )
+
+    # 三国优先，然后加入旧已筛
+    merged = list(
+        dict.fromkeys(
+            source_ips + old_ips
+        )
+    )
+
+    print(
+        f"三国.txt IP：{len(source_ips)}"
+    )
+
+    print(
+        f"旧已筛.txt IP：{len(old_ips)}"
+    )
+
+    print(
+        f"合并去重后：{len(merged)}"
+    )
+
+    return merged
+
+
+# ============================================================
+# 国家标准化
 # ============================================================
 
 def normalize_country(value):
+
     if not value:
         return ""
 
-    value = str(value).strip().upper()
+    value = str(
+        value
+    ).strip().upper()
 
-    return COUNTRY_MAP.get(value, "")
+    return COUNTRY_MAP.get(
+        value,
+        ""
+    )
 
 
 # ============================================================
@@ -149,16 +240,25 @@ def normalize_country(value):
 # ============================================================
 
 def asn_number(value):
+
     if not value:
         return 999999999999
 
-    value = str(value).strip().upper()
+    value = str(
+        value
+    ).strip().upper()
 
-    match = re.search(r"AS(\d+)", value)
+    match = re.search(
+        r"AS(\d+)",
+        value
+    )
 
     if match:
+
         try:
-            return int(match.group(1))
+            return int(
+                match.group(1)
+            )
         except Exception:
             pass
 
@@ -167,14 +267,24 @@ def asn_number(value):
 
 # ============================================================
 # 检测单个 IP
+#
+# 注意：
+#
+# 输入只有 IP
+#
+# 端口完全使用 Worker 返回的 portRemote
+# 不自行默认 443
 # ============================================================
 
-def check_proxy(address):
+def check_proxy(ip):
 
-    url = WORKER_URL.rstrip("/") + "/check"
+    url = (
+        WORKER_URL.rstrip("/")
+        + "/check"
+    )
 
     params = {
-        "ip": address
+        "ip": ip
     }
 
     try:
@@ -185,61 +295,180 @@ def check_proxy(address):
             timeout=TIMEOUT
         )
 
-        if response.status_code != 200:
-            print(
-                f"[失败] {address} HTTP {response.status_code}"
-            )
-            return None
+        # ----------------------------------------------------
+        # HTTP 状态
+        # ----------------------------------------------------
 
-        try:
-            data = response.json()
-        except Exception:
-            print(f"[失败] {address} 返回不是 JSON")
+        if response.status_code != 200:
+
+            print(
+                f"[失败] {ip} HTTP {response.status_code}"
+            )
+
             return None
 
         # ----------------------------------------------------
-        # success 必须为 true
+        # JSON
+        # ----------------------------------------------------
+
+        try:
+
+            data = response.json()
+
+        except Exception:
+
+            print(
+                f"[失败] {ip} 返回不是 JSON"
+            )
+
+            return None
+
+        # ----------------------------------------------------
+        # success
         # ----------------------------------------------------
 
         if data.get("success") is not True:
-            print(f"[失败] {address} success=false")
+
+            print(
+                f"[失败] {ip} success=false"
+            )
+
             return None
 
         # ----------------------------------------------------
-        # 必须有 responseTime
+        # responseTime
         # ----------------------------------------------------
 
-        response_time = data.get("responseTime")
+        response_time = data.get(
+            "responseTime"
+        )
 
         if response_time is None:
-            print(f"[失败] {address} 没有 responseTime")
+
+            print(
+                f"[失败] {ip} 没有 responseTime"
+            )
+
             return None
 
         # ----------------------------------------------------
-        # 读取 probe_results
+        # Worker 返回的远端端口
         # ----------------------------------------------------
 
-        probe_results = data.get("probe_results") or {}
+        port_remote = data.get(
+            "portRemote"
+        )
 
-        ipv4 = probe_results.get("ipv4") or {}
-        ipv6 = probe_results.get("ipv6") or {}
+        if port_remote is None:
+
+            print(
+                f"[失败] {ip} 没有 portRemote"
+            )
+
+            return None
+
+        try:
+
+            port_remote = int(
+                port_remote
+            )
+
+        except Exception:
+
+            print(
+                f"[失败] {ip} portRemote 无效：{port_remote}"
+            )
+
+            return None
+
+        if not (
+            1 <= port_remote <= 65535
+        ):
+
+            print(
+                f"[失败] {ip} portRemote 超出范围：{port_remote}"
+            )
+
+            return None
 
         # ----------------------------------------------------
-        # 优先 IPv4
+        # probe_results
+        # ----------------------------------------------------
+
+        probe_results = (
+            data.get(
+                "probe_results"
+            )
+            or {}
+        )
+
+        ipv4 = (
+            probe_results.get(
+                "ipv4"
+            )
+            or {}
+        )
+
+        ipv6 = (
+            probe_results.get(
+                "ipv6"
+            )
+            or {}
+        )
+
+        # ----------------------------------------------------
+        # 优先 IPv4 exit
         # ----------------------------------------------------
 
         exit_info = None
 
-        if isinstance(ipv4, dict):
-            exit_info = ipv4.get("exit")
+        if isinstance(
+            ipv4,
+            dict
+        ):
 
-        if not isinstance(exit_info, dict):
+            candidate = ipv4.get(
+                "exit"
+            )
 
-            if isinstance(ipv6, dict):
-                exit_info = ipv6.get("exit")
+            if isinstance(
+                candidate,
+                dict
+            ):
 
-        if not isinstance(exit_info, dict):
-            print(f"[失败] {address} 没有出口信息")
+                exit_info = candidate
+
+        # ----------------------------------------------------
+        # 没有 IPv4 时使用 IPv6
+        # ----------------------------------------------------
+
+        if exit_info is None:
+
+            if isinstance(
+                ipv6,
+                dict
+            ):
+
+                candidate = ipv6.get(
+                    "exit"
+                )
+
+                if isinstance(
+                    candidate,
+                    dict
+                ):
+
+                    exit_info = candidate
+
+        if not isinstance(
+            exit_info,
+            dict
+        ):
+
+            print(
+                f"[失败] {ip} 没有出口信息"
+            )
+
             return None
 
         # ----------------------------------------------------
@@ -247,11 +476,18 @@ def check_proxy(address):
         # ----------------------------------------------------
 
         exit_ip = str(
-            exit_info.get("ip") or ""
+            exit_info.get(
+                "ip"
+            )
+            or ""
         ).strip()
 
         if not exit_ip:
-            print(f"[失败] {address} 没有出口 IP")
+
+            print(
+                f"[失败] {ip} 没有出口 IP"
+            )
+
             return None
 
         # ----------------------------------------------------
@@ -259,27 +495,34 @@ def check_proxy(address):
         # ----------------------------------------------------
 
         country_raw = str(
-            exit_info.get("country") or ""
+            exit_info.get(
+                "country"
+            )
+            or ""
         ).strip()
 
-        country = normalize_country(country_raw)
+        country = normalize_country(
+            country_raw
+        )
 
         if not country:
+
             print(
-                f"[失败] {address} 没有国家"
+                f"[失败] {ip} 没有国家"
             )
+
             return None
 
         # ----------------------------------------------------
         # 只保留指定国家
-        #
-        # HK → TW → SG → JP → US → IN
         # ----------------------------------------------------
 
         if country not in COUNTRY_ORDER:
+
             print(
-                f"[跳过] {address} 国家={country_raw}"
+                f"[跳过] {ip} 国家={country_raw}"
             )
+
             return None
 
         # ----------------------------------------------------
@@ -287,7 +530,10 @@ def check_proxy(address):
         # ----------------------------------------------------
 
         city = str(
-            exit_info.get("city") or ""
+            exit_info.get(
+                "city"
+            )
+            or ""
         ).strip()
 
         # ----------------------------------------------------
@@ -295,16 +541,24 @@ def check_proxy(address):
         # ----------------------------------------------------
 
         asn = str(
-            exit_info.get("asn") or ""
+            exit_info.get(
+                "asn"
+            )
+            or ""
         ).strip()
 
-        if asn and not asn.upper().startswith("AS"):
-            asn = "AS" + asn
+        if asn:
+
+            if not asn.upper().startswith("AS"):
+
+                asn = "AS" + asn
 
         if not asn:
+
             print(
-                f"[失败] {address} 没有 ASN"
+                f"[失败] {ip} 没有 ASN"
             )
+
             return None
 
         # ----------------------------------------------------
@@ -312,25 +566,20 @@ def check_proxy(address):
         # ----------------------------------------------------
 
         organization = str(
-            exit_info.get("asOrganization") or ""
+            exit_info.get(
+                "asOrganization"
+            )
+            or ""
         ).strip()
 
         if not organization:
+
             organization = "Unknown"
-
-        # ----------------------------------------------------
-        # 端口
-        # ----------------------------------------------------
-
-        if ":" in address:
-            port = address.rsplit(":", 1)[1]
-        else:
-            port = "443"
 
         # ----------------------------------------------------
         # 最终格式
         #
-        # IP:PORT#国家 城市 AS ASN 运营商
+        # IP:Worker返回的port#国家 城市 ASN 运营商
         #
         # 例如：
         #
@@ -350,20 +599,21 @@ def check_proxy(address):
             if str(x).strip()
         ]
 
-        remark = " ".join(name_parts)
+        remark = " ".join(
+            name_parts
+        )
 
         output = (
-            f"{exit_ip}:{port}#{remark}"
+            f"{ip}:{port_remote}#{remark}"
         )
 
         print(
-            f"[成功] {address} → {output}"
+            f"[成功] {ip} → {output}"
         )
 
         return {
-            "address": address,
-            "ip": exit_ip,
-            "port": int(port),
+            "ip": ip,
+            "port": port_remote,
             "country": country,
             "city": city,
             "asn": asn,
@@ -376,7 +626,7 @@ def check_proxy(address):
     except requests.exceptions.Timeout:
 
         print(
-            f"[失败] {address} 请求超时"
+            f"[失败] {ip} 请求超时"
         )
 
         return None
@@ -384,7 +634,7 @@ def check_proxy(address):
     except Exception as e:
 
         print(
-            f"[失败] {address} {e}"
+            f"[失败] {ip} {e}"
         )
 
         return None
@@ -397,12 +647,20 @@ def check_proxy(address):
 def ip_sort_key(ip):
 
     try:
+
         return tuple(
             int(x)
             for x in ip.split(".")
         )
+
     except Exception:
-        return (999, 999, 999, 999)
+
+        return (
+            999,
+            999,
+            999,
+            999
+        )
 
 
 # ============================================================
@@ -416,8 +674,11 @@ def ip_sort_key(ip):
 def sort_results(results):
 
     return sorted(
+
         results,
+
         key=lambda x: (
+
             COUNTRY_ORDER.get(
                 x["country"],
                 999
@@ -433,12 +694,17 @@ def sort_results(results):
 
 
 # ============================================================
-# 写入输出
+# 写入已筛.txt
 # ============================================================
 
-def write_output(path, results):
+def write_output(
+    path,
+    results
+):
 
-    results = sort_results(results)
+    results = sort_results(
+        results
+    )
 
     with open(
         path,
@@ -449,60 +715,173 @@ def write_output(path, results):
         for item in results:
 
             f.write(
-                item["output"] + "\n"
+                item["output"]
+                + "\n"
             )
 
 
 # ============================================================
 # 主程序
+#
+# 支持两种用法
+#
+# 第一工作流：
+#
+# python check_proxy.py 三国.txt 已筛.txt 已筛.txt
+#
+# 含义：
+#
+# 三国.txt
+# +
+# 旧已筛.txt
+# ↓
+# 合并检测
+# ↓
+# 新已筛.txt
+#
+#
+# 第二工作流：
+#
+# python check_proxy.py 已筛.txt 已筛.txt
+#
+# 含义：
+#
+# 已筛.txt
+# ↓
+# 全部重新检测
+# ↓
+# 新已筛.txt
 # ============================================================
 
 def main():
 
-    if len(sys.argv) < 3:
+    if len(sys.argv) == 4:
+
+        # ----------------------------------------------------
+        # 三个参数
+        #
+        # source
+        # old filtered
+        # output
+        # ----------------------------------------------------
+
+        source_file = sys.argv[1]
+
+        old_filtered_file = sys.argv[2]
+
+        output_file = sys.argv[3]
+
+        print("=" * 60)
 
         print(
-            "用法：python check_proxy.py 输入文件 输出文件"
+            "模式：三国.txt + 已筛.txt 合并重新检测"
+        )
+
+        print("=" * 60)
+
+        print(
+            f"来源文件：{source_file}"
+        )
+
+        print(
+            f"旧筛选文件：{old_filtered_file}"
+        )
+
+        print(
+            f"输出文件：{output_file}"
+        )
+
+        print(
+            f"Worker：{WORKER_URL}"
+        )
+
+        print(
+            f"并发：{MAX_WORKERS}"
+        )
+
+        print("=" * 60)
+
+        addresses = merge_ips(
+            source_file,
+            old_filtered_file
+        )
+
+    elif len(sys.argv) == 3:
+
+        # ----------------------------------------------------
+        # 两个参数
+        #
+        # input
+        # output
+        # ----------------------------------------------------
+
+        input_file = sys.argv[1]
+
+        output_file = sys.argv[2]
+
+        print("=" * 60)
+
+        print(
+            "模式：已筛.txt 重新检测"
+        )
+
+        print("=" * 60)
+
+        print(
+            f"输入文件：{input_file}"
+        )
+
+        print(
+            f"输出文件：{output_file}"
+        )
+
+        print(
+            f"Worker：{WORKER_URL}"
+        )
+
+        print(
+            f"并发：{MAX_WORKERS}"
+        )
+
+        print("=" * 60)
+
+        addresses = read_ips(
+            input_file
+        )
+
+        print(
+            f"读取 IP：{len(addresses)}"
+        )
+
+    else:
+
+        print(
+            "用法："
+        )
+
+        print(
+            "第一工作流："
+        )
+
+        print(
+            "python scripts/check_proxy.py 三国.txt 已筛.txt 已筛.txt"
+        )
+
+        print()
+
+        print(
+            "第二工作流："
+        )
+
+        print(
+            "python scripts/check_proxy.py 已筛.txt 已筛.txt"
         )
 
         sys.exit(1)
 
-    input_file = sys.argv[1]
-    output_file = sys.argv[2]
-
-    print("=" * 60)
-    print("Cloudflare Worker IP 检测")
-    print("=" * 60)
-
-    print(
-        f"输入文件：{input_file}"
-    )
-
-    print(
-        f"输出文件：{output_file}"
-    )
-
-    print(
-        f"Worker：{WORKER_URL}"
-    )
-
-    print(
-        f"并发：{MAX_WORKERS}"
-    )
-
-    print("=" * 60)
-
     # --------------------------------------------------------
-    # 读取
+    # 没有 IP
     # --------------------------------------------------------
-
-    addresses = read_input_file(
-        input_file
-    )
-
-    print(
-        f"待检测：{len(addresses)}"
-    )
 
     if not addresses:
 
@@ -510,7 +889,10 @@ def main():
             "没有可检测的 IP"
         )
 
-        # 不要清空已有输出
+        print(
+            "不覆盖原输出文件。"
+        )
+
         sys.exit(0)
 
     # --------------------------------------------------------
@@ -524,37 +906,46 @@ def main():
     ) as executor:
 
         future_map = {
+
             executor.submit(
                 check_proxy,
-                address
-            ): address
-            for address in addresses
+                ip
+            ): ip
+
+            for ip in addresses
         }
 
         for future in as_completed(
             future_map
         ):
 
+            ip = future_map[
+                future
+            ]
+
             try:
 
                 result = future.result()
 
                 if result is not None:
-                    results.append(result)
+
+                    results.append(
+                        result
+                    )
 
             except Exception as e:
 
-                address = future_map[future]
-
                 print(
-                    f"[失败] {address} {e}"
+                    f"[失败] {ip} {e}"
                 )
 
     # --------------------------------------------------------
     # 统计
     # --------------------------------------------------------
 
-    success_count = len(results)
+    success_count = len(
+        results
+    )
 
     failed_count = (
         len(addresses)
@@ -564,7 +955,7 @@ def main():
     print("=" * 60)
 
     print(
-        f"原始数量：{len(addresses)}"
+        f"原始检测数量：{len(addresses)}"
     )
 
     print(
@@ -576,11 +967,12 @@ def main():
     )
 
     # --------------------------------------------------------
-    # 重要：
+    # 全部失败保护
     #
-    # 如果全部失败，不覆盖原来的 已筛.txt
+    # 非常重要：
     #
-    # 防止 Worker 临时异常导致已筛.txt 被清空。
+    # 如果 Worker 临时异常，
+    # 绝对不能把原来的已筛.txt清空。
     # --------------------------------------------------------
 
     if success_count == 0:
@@ -618,11 +1010,9 @@ def main():
 
     print("=" * 60)
 
-    # --------------------------------------------------------
-    # 显示前几条
-    # --------------------------------------------------------
-
-    print("结果示例：")
+    print(
+        "结果示例："
+    )
 
     for item in results[:10]:
 
@@ -634,4 +1024,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()
