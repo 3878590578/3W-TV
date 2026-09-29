@@ -1,3 +1,4 @@
+
 name: 检测三国.txt
 
 on:
@@ -28,9 +29,9 @@ jobs:
         run: |
           pip install requests
 
-      - name: 检测三国.txt
+      - name: 合并并检测 IP
         run: |
-          python scripts/check_proxy.py 三国.txt 已筛.txt
+          python scripts/check_proxy.py 三国.txt 已筛.txt 已筛.txt
 
       - name: 提交已筛.txt
         run: |
@@ -44,5 +45,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "自动更新已筛.txt"
+          git commit -m "自动检测并更新已筛.txt"
           git push
