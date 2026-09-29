@@ -8,6 +8,7 @@
 13.212.126.228#SG Singapore AS16509 Amazon.com, Inc.
 13.212.207.124#SG Singapore AS16509 Amazon.com, Inc.
 13.212.210.118#SG Singapore AS16509 Amazon.com, Inc.
+13.212.245.171#SG Singapore AS16509 Amazon Data Services Singapore
 13.213.38.199#SG Singapore AS16509 Amazon.com, Inc.
 13.213.232.214#SG Singapore AS16509 Amazon.com, Inc.
 13.215.182.29#SG Singapore AS16509 Amazon.com, Inc.
