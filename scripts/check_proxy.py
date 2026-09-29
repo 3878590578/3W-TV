@@ -12,30 +12,14 @@ import requests
 WORKER_URL = "https://ip-jc.mofa.kdns.fr"
 
 MAX_WORKERS = 16
-
 TIMEOUT = 30
 
 
 # ============================================================
 # 国家名称 → 国家代码
-#
-# Worker 可能返回：
-#
-# Singapore
-# Japan
-# United States
-# India
-#
-# 也兼容：
-#
-# SG
-# JP
-# US
-# IN
 # ============================================================
 
 COUNTRY_MAP = {
-
     "HONG KONG": "HK",
     "TAIWAN": "TW",
     "SINGAPORE": "SG",
@@ -52,12 +36,7 @@ COUNTRY_MAP = {
 }
 
 
-# ============================================================
-# 国家代码 → 国家名称
-# ============================================================
-
 COUNTRY_NAME = {
-
     "HK": "Hong Kong",
     "TW": "Taiwan",
     "SG": "Singapore",
@@ -68,13 +47,12 @@ COUNTRY_NAME = {
 
 
 # ============================================================
-# 固定国家排序
+# 国家固定排序
 #
 # HK → TW → SG → JP → US → IN
 # ============================================================
 
 COUNTRY_ORDER = {
-
     "HK": 0,
     "TW": 1,
     "SG": 2,
@@ -85,221 +63,39 @@ COUNTRY_ORDER = {
 
 
 # ============================================================
-# 从文件中提取 IP:端口
-#
-# 支持：
-#
-# 18.138.57.221:443
-#
-# 18.138.57.221:443#SG Singapore AS16509 Amazon.com
-#
-# 自动忽略 # 后面的内容
+# 读取 IP:端口
+# 自动去除原有 # 后面的内容
 # ============================================================
 
 def load_targets(filename):
 
     targets = []
-
     seen = set()
 
+    with open(
+        filename,
+        "r",
+        encoding="utf-8"
+    ) as f:
 
-    try:
+        for line in f:
 
-        with open(
-            filename,
-            "r",
-            encoding="utf-8"
-        ) as f:
+            line = line.strip()
 
-            for line in f:
+            if not line:
+                continue
 
-                line = line.strip()
+            # 去掉已有备注
+            target = line.split("#", 1)[0].strip()
 
+            if not target:
+                continue
 
-                if not line:
-                    continue
+            if target in seen:
+                continue
 
-
-                # ------------------------------------------------
-                # 去掉 # 后面的备注
-                # ------------------------------------------------
-
-                target = (
-                    line
-                    .split("#", 1)[0]
-                    .strip()
-                )
-
-
-                if not target:
-                    continue
-
-
-                # ------------------------------------------------
-                # 只接受：
-                #
-                # IPv4:端口
-                # ------------------------------------------------
-
-                if not is_valid_target(target):
-
-                    print(
-                        f"[跳过] {filename} "
-                        f"无效目标：{target}"
-                    )
-
-                    continue
-
-
-                # ------------------------------------------------
-                # 去重
-                # ------------------------------------------------
-
-                if target in seen:
-                    continue
-
-
-                seen.add(target)
-
-                targets.append(target)
-
-
-    except FileNotFoundError:
-
-        print(
-            f"[提示] 文件不存在：{filename}"
-        )
-
-        return []
-
-
-    return targets
-
-
-# ============================================================
-# 验证 IP:端口
-# ============================================================
-
-def is_valid_target(target):
-
-    match = re.fullmatch(
-        r"(\d{1,3}(?:\.\d{1,3}){3}):(\d{1,5})",
-        target
-    )
-
-
-    if not match:
-        return False
-
-
-    ip = match.group(1)
-
-    port = int(match.group(2))
-
-
-    # --------------------------------------------------------
-    # IP
-    # --------------------------------------------------------
-
-    parts = ip.split(".")
-
-
-    if len(parts) != 4:
-        return False
-
-
-    for part in parts:
-
-        number = int(part)
-
-        if number < 0 or number > 255:
-            return False
-
-
-    # --------------------------------------------------------
-    # 端口
-    # --------------------------------------------------------
-
-    if port < 1 or port > 65535:
-        return False
-
-
-    return True
-
-
-# ============================================================
-# 合并两个文件
-#
-# 三国.txt
-# +
-# 已筛.txt
-#
-# 自动去重
-# ============================================================
-
-def merge_targets(
-    sanguo_file,
-    filtered_file
-):
-
-    print("")
-    print("============================================================")
-    print("合并检测列表")
-    print("============================================================")
-
-
-    sanguo_targets =
-        load_targets(sanguo_file)
-
-
-    filtered_targets =
-        load_targets(filtered_file)
-
-
-    print(
-        f"三国.txt：{len(sanguo_targets)} 个"
-    )
-
-    print(
-        f"已筛.txt：{len(filtered_targets)} 个"
-    )
-
-
-    # --------------------------------------------------------
-    # 三国.txt 放前面
-    # 已筛.txt 补充进去
-    #
-    # 如果相同 IP:端口：
-    # 只保留一个
-    # --------------------------------------------------------
-
-    targets = []
-
-    seen = set()
-
-
-    for target in (
-        sanguo_targets +
-        filtered_targets
-    ):
-
-        if target in seen:
-            continue
-
-        seen.add(target)
-
-        targets.append(target)
-
-
-    print(
-        f"合并后：{len(targets)} 个"
-    )
-
-    print(
-        f"重复去除："
-        f"{len(sanguo_targets) + len(filtered_targets) - len(targets)} 个"
-    )
-
+            seen.add(target)
+            targets.append(target)
 
     return targets
 
@@ -310,68 +106,56 @@ def merge_targets(
 
 def check_proxy(target):
 
-    url =
-        f"{WORKER_URL}/check"
-
+    url = f"{WORKER_URL}/check"
 
     try:
 
         response = requests.get(
-
             url,
-
             params={
                 "proxyip": target
             },
-
-            timeout=TIMEOUT,
+            timeout=TIMEOUT
         )
-
 
         response.raise_for_status()
 
-
-        data =
-            response.json()
-
+        data = response.json()
 
     except Exception as e:
 
         print(
-            f"[失败] {target} "
-            f"请求错误：{e}"
+            f"[失败] {target} 请求错误: {e}"
         )
 
         return None
 
 
     # ========================================================
-    # success
+    # 必须 success=true
     # ========================================================
 
     if data.get("success") is not True:
 
         print(
-            f"[失败] {target} "
-            f"success=false"
+            f"[失败] {target} success=false"
         )
 
         return None
 
 
     # ========================================================
-    # responseTime
+    # 必须存在 responseTime
     # ========================================================
 
-    response_time =
-        data.get("responseTime")
-
+    response_time = data.get(
+        "responseTime"
+    )
 
     if response_time is None:
 
         print(
-            f"[失败] {target} "
-            f"没有 responseTime"
+            f"[失败] {target} 没有 responseTime"
         )
 
         return None
@@ -379,23 +163,21 @@ def check_proxy(target):
 
     try:
 
-        response_time =
-            int(response_time)
+        response_time = int(
+            response_time
+        )
 
     except Exception:
 
         print(
-            f"[失败] {target} "
-            f"responseTime 无效"
+            f"[失败] {target} responseTime 无效"
         )
 
         return None
 
 
     # ========================================================
-    # probe_results
-    #
-    # Worker 当前结构：
+    # Worker 正确返回结构：
     #
     # probe_results
     #   ├── ipv4
@@ -407,28 +189,30 @@ def check_proxy(target):
     #   │
     #   └── ipv6
     #         └── exit
+    #
+    # 优先 IPv4，没有则 IPv6
     # ========================================================
 
-    probe_results =
-        data.get("probe_results") or {}
+    probe_results = (
+        data.get("probe_results")
+        or {}
+    )
 
+    ipv4 = (
+        probe_results.get("ipv4")
+        or {}
+    )
 
-    ipv4 =
-        probe_results.get("ipv4") or {}
+    ipv6 = (
+        probe_results.get("ipv6")
+        or {}
+    )
 
-
-    ipv6 =
-        probe_results.get("ipv6") or {}
-
-
-    # --------------------------------------------------------
-    # 优先 IPv4
-    # 没有 IPv4 再使用 IPv6
-    # --------------------------------------------------------
-
-    exit_info =
-        ipv4.get("exit") or \
-        ipv6.get("exit") or {}
+    exit_info = (
+        ipv4.get("exit")
+        or ipv6.get("exit")
+        or {}
+    )
 
 
     if not isinstance(
@@ -437,8 +221,7 @@ def check_proxy(target):
     ):
 
         print(
-            f"[失败] {target} "
-            f"没有有效 exit 信息"
+            f"[失败] {target} 没有有效 exit 信息"
         )
 
         return None
@@ -448,17 +231,15 @@ def check_proxy(target):
     # 出口 IP
     # ========================================================
 
-    exit_ip =
-        str(
-            exit_info.get("ip") or ""
-        ).strip()
+    exit_ip = str(
+        exit_info.get("ip") or ""
+    ).strip()
 
 
     if not exit_ip:
 
         print(
-            f"[失败] {target} "
-            f"没有出口 IP"
+            f"[失败] {target} 没有出口 IP"
         )
 
         return None
@@ -468,66 +249,53 @@ def check_proxy(target):
     # 国家
     # ========================================================
 
-    country_raw =
-        str(
-            exit_info.get("country") or ""
-        ).strip()
+    country_raw = str(
+        exit_info.get("country") or ""
+    ).strip()
 
 
     if not country_raw:
 
         print(
-            f"[失败] {target} "
-            f"没有国家"
+            f"[失败] {target} 没有国家"
         )
 
         return None
 
 
-    country_code =
-        COUNTRY_MAP.get(
-            country_raw.upper(),
-            country_raw.upper()
-        )
+    country_code = COUNTRY_MAP.get(
+        country_raw.upper(),
+        country_raw.upper()
+    )
 
 
     # ========================================================
-    # 只允许六个地区
-    #
-    # HK
-    # TW
-    # SG
-    # JP
-    # US
-    # IN
+    # 只保留指定国家
     # ========================================================
 
-    if (
-        country_code
-        not in COUNTRY_ORDER
-    ):
+    if country_code not in COUNTRY_ORDER:
 
         print(
             f"[跳过] {target} "
-            f"国家不在指定范围："
-            f"{country_raw}"
+            f"国家不在指定范围：{country_raw}"
         )
 
         return None
 
 
-    country_name =
-        COUNTRY_NAME[
-            country_code
-        ]
+    country_name = COUNTRY_NAME[
+        country_code
+    ]
 
 
     # ========================================================
     # ASN
     # ========================================================
 
-    asn_value =
-        exit_info.get("asn") or ""
+    asn_value = (
+        exit_info.get("asn")
+        or ""
+    )
 
 
     if isinstance(
@@ -535,76 +303,68 @@ def check_proxy(target):
         int
     ):
 
-        asn =
-            f"AS{asn_value}"
-
+        asn = f"AS{asn_value}"
 
     else:
 
-        asn =
-            str(asn_value).strip()
+        asn = str(
+            asn_value
+        ).strip()
 
 
         if not asn:
 
             print(
-                f"[失败] {target} "
-                f"没有 ASN"
+                f"[失败] {target} 没有 ASN"
             )
 
             return None
 
 
-        if not asn.upper().startswith(
-            "AS"
-        ):
+        if not asn.upper().startswith("AS"):
 
-            asn =
-                f"AS{asn}"
+            asn = f"AS{asn}"
 
 
     # ========================================================
     # 提取 ASN 数字
     # ========================================================
 
-    asn_match =
-        re.search(
-            r"AS(\d+)",
-            asn,
-            re.IGNORECASE
-        )
+    asn_match = re.search(
+        r"AS(\d+)",
+        asn,
+        re.IGNORECASE
+    )
 
 
     if not asn_match:
 
         print(
-            f"[失败] {target} "
-            f"ASN 无效：{asn}"
+            f"[失败] {target} ASN 无效：{asn}"
         )
 
         return None
 
 
-    asn =
+    asn = (
         f"AS{asn_match.group(1)}"
+    )
 
 
     # ========================================================
     # 运营商
     # ========================================================
 
-    organization =
-        str(
-            exit_info.get(
-                "asOrganization"
-            ) or ""
-        ).strip()
+    organization = str(
+        exit_info.get(
+            "asOrganization"
+        ) or ""
+    ).strip()
 
 
     if not organization:
 
-        organization =
-            "Unknown"
+        organization = "Unknown"
 
 
     # ========================================================
@@ -614,31 +374,20 @@ def check_proxy(target):
     # ========================================================
 
     result = (
-
         f"{target}"
-
         f"#{country_code} "
-
         f"{country_name} "
-
         f"{asn} "
-
         f"{organization}"
     )
 
 
     print(
-
         f"[成功] {target} → "
-
         f"{country_code} "
-
         f"{country_name} "
-
         f"{asn} "
-
         f"{organization} "
-
         f"{response_time}ms"
     )
 
@@ -647,7 +396,7 @@ def check_proxy(target):
 
 
 # ============================================================
-# IP 数字排序
+# IP 排序
 # ============================================================
 
 def ip_sort_key(ip):
@@ -686,54 +435,46 @@ def sort_key(item):
 
     try:
 
-        ip_port, info =
-            item.split(
-                "#",
-                1
-            )
+        ip_port, info = item.split(
+            "#",
+            1
+        )
+
+        ip = ip_port.rsplit(
+            ":",
+            1
+        )[0]
+
+        country = (
+            info.split()[0]
+            .upper()
+        )
 
 
-        ip =
-            ip_port.rsplit(
-                ":",
-                1
-            )[0]
-
-
-        country =
-            info.split()[0].upper()
-
-
-        asn_match =
-            re.search(
-                r"\bAS(\d+)\b",
-                info,
-                re.IGNORECASE
-            )
+        asn_match = re.search(
+            r"\bAS(\d+)\b",
+            info,
+            re.IGNORECASE
+        )
 
 
         if asn_match:
 
-            asn_number =
-                int(
-                    asn_match.group(1)
-                )
+            asn_number = int(
+                asn_match.group(1)
+            )
 
         else:
 
-            asn_number =
-                999999999
+            asn_number = 999999999
 
 
         return (
-
             COUNTRY_ORDER.get(
                 country,
                 999
             ),
-
             asn_number,
-
             ip_sort_key(ip)
         )
 
@@ -741,11 +482,8 @@ def sort_key(item):
     except Exception:
 
         return (
-
             999,
-
             999999999,
-
             (
                 999,
                 999,
@@ -761,53 +499,32 @@ def sort_key(item):
 
 def main():
 
-    # --------------------------------------------------------
-    # 用法
-    #
-    # python scripts/check_proxy.py
-    # 三国.txt
-    # 已筛.txt
-    # --------------------------------------------------------
-
     if len(sys.argv) != 3:
 
         print(
-
-            "用法：\n"
-
+            "用法："
             "python scripts/check_proxy.py "
-            "三国.txt 已筛.txt"
+            "输入文件 输出文件"
         )
 
         sys.exit(1)
 
 
-    input_file =
-        sys.argv[1]
-
-
-    output_file =
-        sys.argv[2]
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
 
 
     # ========================================================
-    # 合并 三国.txt + 已筛.txt
+    # 读取目标
     # ========================================================
 
-    targets =
-        merge_targets(
-            input_file,
-            output_file
-        )
+    targets = load_targets(
+        input_file
+    )
 
-
-    print("")
-    print("============================================================")
-    print("开始重新检测")
-    print("============================================================")
 
     print(
-        f"最终待检测：{len(targets)}"
+        f"待检测：{len(targets)}"
     )
 
     print(
@@ -819,17 +536,13 @@ def main():
     )
 
 
-    # ========================================================
-    # 两边都没有数据
-    # ========================================================
-
     if not targets:
 
         print(
-            "错误：三国.txt 和 已筛.txt 都没有有效 IP:端口"
+            "没有需要检测的 IP"
         )
 
-        sys.exit(1)
+        sys.exit(0)
 
 
     results = []
@@ -842,7 +555,6 @@ def main():
     with ThreadPoolExecutor(
         max_workers=MAX_WORKERS
     ) as executor:
-
 
         future_map = {
 
@@ -859,14 +571,16 @@ def main():
             future_map
         ):
 
-            target =
-                future_map[future]
+            target = future_map[
+                future
+            ]
 
 
             try:
 
-                result =
+                result = (
                     future.result()
+                )
 
 
                 if result:
@@ -879,60 +593,9 @@ def main():
             except Exception as e:
 
                 print(
-
                     f"[失败] {target} "
-
                     f"检测异常：{e}"
                 )
-
-
-    # ========================================================
-    # 检测完成
-    # ========================================================
-
-    print("")
-    print("============================================================")
-    print("检测完成")
-    print("============================================================")
-
-
-    print(
-        f"合并待检测：{len(targets)}"
-    )
-
-
-    print(
-        f"检测成功：{len(results)}"
-    )
-
-
-    print(
-        f"检测失败："
-        f"{len(targets) - len(results)}"
-    )
-
-
-    # ========================================================
-    # 极重要保护
-    #
-    # 如果本次一个成功的都没有：
-    #
-    # 不覆盖原来的 已筛.txt
-    #
-    # 防止 Worker 临时故障导致：
-    #
-    # 已筛.txt 被清空
-    # ========================================================
-
-    if len(results) == 0:
-
-        print("")
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        print("本次检测成功数量为 0")
-        print("为了防止数据丢失，不覆盖原来的已筛.txt")
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-
-        sys.exit(1)
 
 
     # ========================================================
@@ -945,64 +608,14 @@ def main():
 
 
     # ========================================================
-    # 再次去重
-    #
-    # 理论上前面已经去重
-    # 这里按照最终 target 再保险一次
+    # 写入输出文件
     # ========================================================
-
-    final_results = []
-
-    result_seen = set()
-
-
-    for item in results:
-
-        target =
-            item.split(
-                "#",
-                1
-            )[0].strip()
-
-
-        if target in result_seen:
-
-            continue
-
-
-        result_seen.add(
-            target
-        )
-
-
-        final_results.append(
-            item
-        )
-
-
-    results =
-        final_results
-
-
-    # ========================================================
-    # 写入临时文件
-    #
-    # 先写 .tmp
-    # 成功后再替换
-    #
-    # 防止写文件过程中异常造成已筛损坏
-    # ========================================================
-
-    temp_file =
-        f"{output_file}.tmp"
-
 
     with open(
-        temp_file,
+        output_file,
         "w",
         encoding="utf-8"
     ) as f:
-
 
         for item in results:
 
@@ -1012,37 +625,32 @@ def main():
 
 
     # ========================================================
-    # 替换正式文件
-    # ========================================================
-
-    import os
-
-
-    os.replace(
-        temp_file,
-        output_file
-    )
-
-
-    # ========================================================
-    # 最终统计
+    # 统计
     # ========================================================
 
     print("")
-    print("============================================================")
-    print("已筛.txt 更新完成")
-    print("============================================================")
-
 
     print(
-        f"最终数量：{len(results)}"
+        f"原始数量：{len(targets)}"
     )
 
+    print(
+        f"成功数量：{len(results)}"
+    )
+
+    print(
+        f"失败数量："
+        f"{len(targets) - len(results)}"
+    )
 
     print(
         f"输出文件：{output_file}"
     )
 
+
+# ============================================================
+# 执行
+# ============================================================
 
 if __name__ == "__main__":
 
