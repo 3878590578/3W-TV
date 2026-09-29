@@ -1,0 +1,48 @@
+name: 每日复筛已筛.txt
+
+on:
+  schedule:
+    - cron: "0 23 * * *"
+      timezone: "Asia/Shanghai"
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  recheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 拉取仓库
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: 安装 requests
+        run: |
+          pip install requests
+
+      - name: 复筛已筛.txt
+        run: |
+          python scripts/check_proxy.py 已筛.txt 已筛_new.txt
+          mv 已筛_new.txt 已筛.txt
+
+      - name: 提交复筛结果
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add 已筛.txt
+
+          if git diff --cached --quiet; then
+            echo "复筛后没有变化"
+            exit 0
+          fi
+
+          git commit -m "每日复筛已筛.txt"
+          git push
