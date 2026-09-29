@@ -1,3 +1,4 @@
+
 name: 每日复筛已筛.txt
 
 on:
@@ -15,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: 拉取仓库
         uses: actions/checkout@v4
 
@@ -27,10 +29,9 @@ jobs:
         run: |
           pip install requests
 
-      - name: 复筛已筛.txt
+      - name: 重新检测已筛.txt
         run: |
-          python scripts/check_proxy.py 已筛.txt 已筛_new.txt
-          mv 已筛_new.txt 已筛.txt
+          python scripts/check_proxy.py 已筛.txt 已筛.txt
 
       - name: 提交复筛结果
         run: |
