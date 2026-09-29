@@ -1,0 +1,82 @@
+3.0.245.30#SG Singapore AS16509 Amazon.com, Inc.
+3.1.187.169#SG Singapore AS16509 Amazon.com, Inc.
+13.212.31.121#SG Singapore AS16509 Amazon.com, Inc.
+13.212.33.11#SG Singapore AS16509 Amazon.com, Inc.
+13.212.33.99#SG Singapore AS16509 Amazon.com, Inc.
+13.212.102.10#SG Singapore AS16509 Amazon.com, Inc.
+13.212.116.4#SG Singapore AS16509 Amazon.com, Inc.
+13.212.126.228#SG Singapore AS16509 Amazon.com, Inc.
+13.212.207.124#SG Singapore AS16509 Amazon.com, Inc.
+13.212.210.118#SG Singapore AS16509 Amazon.com, Inc.
+13.213.38.199#SG Singapore AS16509 Amazon.com, Inc.
+13.213.232.214#SG Singapore AS16509 Amazon.com, Inc.
+13.215.182.29#SG Singapore AS16509 Amazon.com, Inc.
+13.215.195.63#SG Singapore AS16509 Amazon.com, Inc.
+13.215.229.246#SG Singapore AS16509 Amazon.com, Inc.
+13.250.17.35#SG Singapore AS16509 Amazon.com, Inc.
+13.250.78.140#SG Singapore AS16509 Amazon.com, Inc.
+13.250.129.244#SG Singapore AS16509 Amazon.com, Inc.
+13.251.248.21#SG Singapore AS16509 Amazon.com, Inc.
+18.136.57.18#SG Singapore AS16509 Amazon.com, Inc.
+18.136.76.91#SG Singapore AS16509 Amazon.com, Inc.
+18.136.135.61#SG Singapore AS16509 Amazon.com, Inc.
+18.136.144.144#SG Singapore AS16509 Amazon.com, Inc.
+18.138.10.11#SG Singapore AS16509 Amazon.com, Inc.
+18.138.34.221#SG Singapore AS16509 Amazon.com, Inc.
+18.138.206.30#SG Singapore AS16509 Amazon.com, Inc.
+18.139.160.115#SG Singapore AS16509 Amazon.com, Inc.
+18.140.95.218#SG Singapore AS16509 Amazon.com, Inc.
+18.141.208.166#SG Singapore AS16509 Amazon.com, Inc.
+18.141.237.52#SG Singapore AS16509 Amazon.com, Inc.
+18.142.4.29#SG Singapore AS16509 Amazon.com, Inc.
+18.143.168.219#SG Singapore AS16509 Amazon.com, Inc.
+46.137.229.208#SG Singapore AS16509 Amazon.com, Inc.
+47.128.158.36#SG Singapore AS16509 Amazon.com, Inc.
+47.129.4.128#SG Singapore AS16509 Amazon.com, Inc.
+47.129.198.52#SG Singapore AS16509 Amazon.com, Inc.
+47.131.22.90#SG Singapore AS16509 Amazon Data Services Singapore
+47.131.104.124#SG Singapore AS16509 Amazon.com, Inc.
+47.131.106.251#SG Singapore AS16509 Amazon.com, Inc.
+47.131.155.232#SG Singapore AS16509 Amazon.com, Inc.
+47.131.186.184#SG Singapore AS16509 Amazon.com, Inc.
+47.131.189.221#SG Singapore AS16509 Amazon.com, Inc.
+52.74.57.233#SG Singapore AS16509 Amazon.com, Inc.
+52.220.183.112#SG Singapore AS16509 Amazon.com, Inc.
+52.221.4.213#SG Singapore AS16509 Amazon.com, Inc.
+52.221.53.171#SG Singapore AS16509 Amazon.com, Inc.
+54.151.143.36#SG Singapore AS16509 Amazon.com, Inc.
+54.151.178.12#SG Singapore AS16509 Amazon.com, Inc.
+54.169.146.255#SG Singapore AS16509 Amazon.com, Inc.
+54.169.162.186#SG Singapore AS16509 Amazon.com, Inc.
+54.179.212.2#SG Singapore AS16509 Amazon.com, Inc.
+54.251.91.171#SG Singapore AS16509 Amazon.com, Inc.
+54.254.42.64#SG Singapore AS16509 Amazon.com, Inc.
+54.254.60.182#SG Singapore AS16509 Amazon.com, Inc.
+54.254.226.116#SG Singapore AS16509 Amazon.com, Inc.
+54.255.75.247#SG Singapore AS16509 Amazon.com, Inc.
+56.10.33.77#SG Singapore AS16509 Amazon.com, Inc.
+56.10.67.92#SG Singapore AS16509 Amazon.com, Inc.
+122.248.238.214#SG Singapore AS16509 Amazon.com, Inc.
+175.41.159.44#SG Singapore AS16509 Amazon.com, Inc.
+154.17.29.72#US United States AS906 DMIT Cloud Services
+154.26.184.229#US United States AS906 DMIT Cloud Services
+13.126.206.240#IN India AS16509 Amazon.com, Inc.
+13.200.106.232#IN India AS16509 Amazon.com, Inc.
+13.233.174.246#IN India AS16509 Amazon.com, Inc.
+13.233.229.128#IN India AS16509 Amazon.com, Inc.
+35.154.184.88#IN India AS16509 Amazon.com, Inc.
+52.66.200.252#IN India AS16509 Amazon.com, Inc.
+65.2.215.47#IN India AS16509 Amazon.com, Inc.
+170.187.237.10#IN India AS63949 Akamai Connected Cloud / Linode
+170.187.237.195#IN India AS63949 Akamai Connected Cloud / Linode
+170.187.237.198#IN India AS63949 Akamai Connected Cloud / Linode
+172.104.206.25#IN India AS63949 Akamai Connected Cloud / Linode
+172.105.50.77#IN India AS63949 Akamai Connected Cloud / Linode
+172.105.52.59#IN India AS63949 Akamai Connected Cloud / Linode
+172.105.54.87#IN India AS63949 Akamai Connected Cloud / Linode
+172.232.85.65#IN India AS63949 Akamai Connected Cloud / Linode
+172.232.85.173#IN India AS63949 Akamai Connected Cloud / Linode
+172.232.85.192#IN India AS63949 Akamai Connected Cloud / Linode
+172.237.36.81#IN India AS63949 Linode
+172.237.36.109#IN India AS63949 Linode
+192.46.211.6#IN India AS63949 Akamai Connected Cloud / Linode
