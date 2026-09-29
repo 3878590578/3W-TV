@@ -13,7 +13,6 @@
 13.212.126.228:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.207.124:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.210.118:443#SG Singapore AS16509 Amazon.com, Inc.
-13.212.245.171:443#SG Singapore AS16509 Amazon Data Services Singapore
 13.213.38.199:443#SG Singapore AS16509 Amazon.com, Inc.
 13.213.232.214:443#SG Singapore AS16509 Amazon.com, Inc.
 13.215.182.29:443#SG Singapore AS16509 Amazon.com, Inc.
