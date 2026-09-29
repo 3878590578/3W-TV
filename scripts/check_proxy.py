@@ -1,7 +1,9 @@
 import sys
 import re
-import requests
+import ipaddress
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import requests
 
 
 # ============================================================
@@ -15,14 +17,40 @@ TIMEOUT = 30
 
 
 # ============================================================
-# 国家固定排序
-#
-# 香港 HK
-# 台湾 TW
-# 新加坡 SG
-# 日本 JP
-# 美国 US
-# 印度 IN
+# 国家名称 → 国家代码
+# 支持 Worker 返回完整国家名，也兼容直接返回国家代码
+# ============================================================
+
+COUNTRY_MAP = {
+    "HONG KONG": "HK",
+    "TAIWAN": "TW",
+    "SINGAPORE": "SG",
+    "JAPAN": "JP",
+    "UNITED STATES": "US",
+    "INDIA": "IN",
+
+    "HK": "HK",
+    "TW": "TW",
+    "SG": "SG",
+    "JP": "JP",
+    "US": "US",
+    "IN": "IN",
+}
+
+
+COUNTRY_NAME = {
+    "HK": "Hong Kong",
+    "TW": "Taiwan",
+    "SG": "Singapore",
+    "JP": "Japan",
+    "US": "United States",
+    "IN": "India",
+}
+
+
+# ============================================================
+# 固定国家排序
+# HK → TW → SG → JP → US → IN
 # ============================================================
 
 COUNTRY_ORDER = {
@@ -36,34 +64,13 @@ COUNTRY_ORDER = {
 
 
 # ============================================================
-# 国家名称
+# 读取 IP:端口
+# 自动去掉原文件后面的 #备注
 # ============================================================
 
-COUNTRY_NAME = {
-    "HK": "Hong Kong",
-    "TW": "Taiwan",
-    "SG": "Singapore",
-    "JP": "Japan",
-    "US": "United States",
-    "IN": "India",
-    "KR": "South Korea",
-    "GB": "United Kingdom",
-    "DE": "Germany",
-    "FR": "France",
-    "CA": "Canada",
-    "AU": "Australia",
-    "NL": "Netherlands",
-    "RU": "Russia",
-    "BR": "Brazil",
-}
-
-
-# ============================================================
-# 读取 IP
-# ============================================================
-
-def read_targets(filename):
+def load_targets(filename):
     targets = []
+    seen = set()
 
     with open(filename, "r", encoding="utf-8") as f:
         for line in f:
@@ -72,202 +79,283 @@ def read_targets(filename):
             if not line:
                 continue
 
-            # 去掉旧的 # 信息
-            line = line.split("#", 1)[0].strip()
+            # 去掉已有备注
+            target = line.split("#", 1)[0].strip()
 
-            if line not in targets:
-                targets.append(line)
+            if not target:
+                continue
+
+            if target in seen:
+                continue
+
+            seen.add(target)
+            targets.append(target)
 
     return targets
 
 
 # ============================================================
-# 单个 IP 检测
+# 检测单个 IP:端口
 # ============================================================
 
 def check_proxy(target):
-    try:
-        url = f"{WORKER_URL}/check"
+    url = f"{WORKER_URL}/check"
 
+    try:
         response = requests.get(
             url,
-            params={
-                "proxyip": target
-            },
-            timeout=TIMEOUT
+            params={"proxyip": target},
+            timeout=TIMEOUT,
         )
 
-        if response.status_code != 200:
-            print(f"[失败] {target} HTTP {response.status_code}")
-            return None
+        response.raise_for_status()
 
         data = response.json()
 
-        # 必须 success=true
-        if data.get("success") is not True:
-            print(f"[失败] {target} success=false")
-            return None
-
-        # 必须有 responseTime
-        response_time = data.get("responseTime")
-
-        if response_time is None:
-            print(f"[失败] {target} 没有 responseTime")
-            return None
-
-        try:
-            response_time = int(response_time)
-        except Exception:
-            print(f"[失败] {target} responseTime 无效")
-            return None
-
-        # ====================================================
-        # 获取出口信息
-        # ====================================================
-
-        probe_results = data.get("probe_results", {})
-
-        ipv4 = probe_results.get("ipv4", {})
-        ipv6 = probe_results.get("ipv6", {})
-
-        exit_ip = (
-            ipv4.get("exit")
-            or ipv6.get("exit")
-        )
-
-        if not exit_ip:
-            print(f"[失败] {target} 没有出口 IP")
-            return None
-
-        # ====================================================
-        # 国家
-        # ====================================================
-
-        country = data.get("country", "")
-
-        if not country:
-            country = (
-                ipv4.get("country")
-                or ipv6.get("country")
-                or ""
-            )
-
-        country = str(country).upper().strip()
-
-        if not country:
-            print(f"[失败] {target} 没有国家")
-            return None
-
-        country_name = COUNTRY_NAME.get(
-            country,
-            country
-        )
-
-        # ====================================================
-        # ASN
-        # ====================================================
-
-        asn = data.get("asn", "")
-
-        if not asn:
-            asn = (
-                ipv4.get("asn")
-                or ipv6.get("asn")
-                or ""
-            )
-
-        asn = str(asn).strip()
-
-        if asn:
-            if not asn.upper().startswith("AS"):
-                asn = "AS" + asn.lstrip("asAS")
-
-        # ====================================================
-        # ASN 组织
-        # ====================================================
-
-        organization = data.get("asOrganization", "")
-
-        if not organization:
-            organization = (
-                ipv4.get("asOrganization")
-                or ipv6.get("asOrganization")
-                or ""
-            )
-
-        organization = str(organization).strip()
-
-        # ====================================================
-        # 输出
-        # ====================================================
-
-        result = (
-            f"{target}#"
-            f"{country} "
-            f"{country_name} "
-            f"{asn} "
-            f"{organization}"
-        )
-
-        print(f"[成功] {result}")
-
-        return result
-
     except Exception as e:
-        print(f"[异常] {target} -> {e}")
+        print(f"[失败] {target} 请求错误: {e}")
         return None
 
 
+    # --------------------------------------------------------
+    # 必须 success=true
+    # --------------------------------------------------------
+
+    if data.get("success") is not True:
+        print(f"[失败] {target} success=false")
+        return None
+
+
+    # --------------------------------------------------------
+    # 必须有 responseTime
+    # --------------------------------------------------------
+
+    response_time = data.get("responseTime")
+
+    if response_time is None:
+        print(f"[失败] {target} 没有 responseTime")
+        return None
+
+
+    try:
+        response_time = int(response_time)
+    except Exception:
+        print(f"[失败] {target} responseTime 无效")
+        return None
+
+
+    # --------------------------------------------------------
+    # Worker 返回结构：
+    #
+    # probe_results
+    #   ├── ipv4
+    #   │     └── exit
+    #   │           ├── ip
+    #   │           ├── country
+    #   │           ├── asn
+    #   │           └── asOrganization
+    #   │
+    #   └── ipv6
+    #         └── exit
+    #
+    # 优先 IPv4，没有则使用 IPv6
+    # --------------------------------------------------------
+
+    probe_results = data.get("probe_results") or {}
+
+    ipv4 = probe_results.get("ipv4") or {}
+    ipv6 = probe_results.get("ipv6") or {}
+
+    exit_info = ipv4.get("exit") or ipv6.get("exit") or {}
+
+    if not isinstance(exit_info, dict):
+        print(f"[失败] {target} 没有有效 exit 信息")
+        return None
+
+
+    # --------------------------------------------------------
+    # 获取出口 IP
+    # --------------------------------------------------------
+
+    exit_ip = str(exit_info.get("ip") or "").strip()
+
+    if not exit_ip:
+        print(f"[失败] {target} 没有出口 IP")
+        return None
+
+
+    # --------------------------------------------------------
+    # 获取国家
+    # Worker 当前返回的是完整国家名称，例如：
+    #
+    # Singapore
+    # Japan
+    # United States
+    # India
+    # --------------------------------------------------------
+
+    country_raw = str(
+        exit_info.get("country") or ""
+    ).strip()
+
+    if not country_raw:
+        print(f"[失败] {target} 没有国家")
+        return None
+
+
+    country_code = COUNTRY_MAP.get(
+        country_raw.upper(),
+        country_raw.upper()
+    )
+
+
+    # --------------------------------------------------------
+    # 只保留指定六个地区
+    #
+    # HK → TW → SG → JP → US → IN
+    # --------------------------------------------------------
+
+    if country_code not in COUNTRY_ORDER:
+        print(f"[跳过] {target} 国家不在指定范围：{country_raw}")
+        return None
+
+
+    country_name = COUNTRY_NAME[country_code]
+
+
+    # --------------------------------------------------------
+    # ASN
+    # --------------------------------------------------------
+
+    asn_value = exit_info.get("asn") or ""
+
+    if isinstance(asn_value, int):
+        asn = f"AS{asn_value}"
+
+    else:
+        asn = str(asn_value).strip()
+
+        if not asn:
+            print(f"[失败] {target} 没有 ASN")
+            return None
+
+        if not asn.upper().startswith("AS"):
+            asn = f"AS{asn}"
+
+
+    # --------------------------------------------------------
+    # ASN 数字部分
+    # --------------------------------------------------------
+
+    asn_match = re.search(
+        r"AS(\d+)",
+        asn,
+        re.IGNORECASE
+    )
+
+    if not asn_match:
+        print(f"[失败] {target} ASN 无效：{asn}")
+        return None
+
+
+    asn = f"AS{asn_match.group(1)}"
+
+
+    # --------------------------------------------------------
+    # 运营商
+    # --------------------------------------------------------
+
+    organization = str(
+        exit_info.get("asOrganization") or ""
+    ).strip()
+
+    if not organization:
+        organization = "Unknown"
+
+
+    # --------------------------------------------------------
+    # 最终格式
+    #
+    # IP:端口#SG Singapore AS16509 Amazon.com, Inc.
+    # --------------------------------------------------------
+
+    result = (
+        f"{target}"
+        f"#{country_code} "
+        f"{country_name} "
+        f"{asn} "
+        f"{organization}"
+    )
+
+    print(
+        f"[成功] {target} → "
+        f"{country_code} {country_name} "
+        f"{asn} {organization} "
+        f"{response_time}ms"
+    )
+
+    return result
+
+
 # ============================================================
-# 排序
+# IP 数字排序
+# ============================================================
+
+def ip_sort_key(ip):
+    try:
+        return tuple(
+            int(x)
+            for x in ip.split(".")
+        )
+    except Exception:
+        return (999, 999, 999, 999)
+
+
+# ============================================================
+# 最终排序
 #
 # 国家：
 # HK → TW → SG → JP → US → IN
 #
 # 同国家：
-# ASN 数字升序
+# ASN 从小到大
 #
 # 同 ASN：
-# IP 数字升序
+# IP 从小到大
 # ============================================================
 
 def sort_key(item):
-    ip_port, info = item.split("#", 1)
+    try:
+        ip_port, info = item.split("#", 1)
 
-    # IP
-    ip = ip_port.rsplit(":", 1)[0]
+        ip = ip_port.rsplit(":", 1)[0]
 
-    ip_parts = tuple(
-        int(x)
-        for x in ip.split(".")
-    )
+        country = info.split()[0].upper()
 
-    # 国家代码
-    country = info.split()[0].upper()
+        asn_match = re.search(
+            r"\bAS(\d+)\b",
+            info,
+            re.IGNORECASE
+        )
 
-    # ASN
-    asn_match = re.search(
-        r"\bAS(\d+)\b",
-        info,
-        re.IGNORECASE
-    )
+        if asn_match:
+            asn_number = int(asn_match.group(1))
+        else:
+            asn_number = 999999999
 
-    if asn_match:
-        asn_number = int(asn_match.group(1))
-    else:
-        asn_number = 999999999
 
-    # 固定国家顺序
-    country_number = COUNTRY_ORDER.get(
-        country,
-        999
-    )
+        return (
+            COUNTRY_ORDER.get(country, 999),
+            asn_number,
+            ip_sort_key(ip),
+        )
 
-    return (
-        country_number,
-        asn_number,
-        ip_parts
-    )
+    except Exception:
+        return (
+            999,
+            999999999,
+            (999, 999, 999, 999),
+        )
 
 
 # ============================================================
@@ -275,7 +363,6 @@ def sort_key(item):
 # ============================================================
 
 def main():
-
     if len(sys.argv) != 3:
         print(
             "用法：python scripts/check_proxy.py "
@@ -283,25 +370,33 @@ def main():
         )
         sys.exit(1)
 
+
     input_file = sys.argv[1]
     output_file = sys.argv[2]
 
-    print("=" * 60)
-    print("Cloudflare Worker IP 检测")
-    print("=" * 60)
 
-    targets = read_targets(input_file)
+    # --------------------------------------------------------
+    # 读取目标
+    # --------------------------------------------------------
+
+    targets = load_targets(input_file)
 
     print(f"待检测：{len(targets)}")
     print(f"Worker：{WORKER_URL}")
     print(f"并发：{MAX_WORKERS}")
-    print()
+
+
+    if not targets:
+        print("没有需要检测的 IP")
+        sys.exit(0)
+
 
     results = []
 
-    # ========================================================
+
+    # --------------------------------------------------------
     # 并发检测
-    # ========================================================
+    # --------------------------------------------------------
 
     with ThreadPoolExecutor(
         max_workers=MAX_WORKERS
@@ -315,13 +410,9 @@ def main():
             for target in targets
         }
 
-        completed = 0
-
         for future in as_completed(future_map):
 
             target = future_map[future]
-
-            completed += 1
 
             try:
                 result = future.result()
@@ -329,34 +420,23 @@ def main():
                 if result:
                     results.append(result)
 
-                print(
-                    f"进度：{completed}/{len(targets)}"
-                )
-
             except Exception as e:
                 print(
-                    f"[异常] {target} -> {e}"
+                    f"[失败] {target} "
+                    f"检测异常：{e}"
                 )
 
-    # ========================================================
-    # 去重
-    # ========================================================
 
-    results = list(
-        dict.fromkeys(results)
-    )
+    # --------------------------------------------------------
+    # 排序
+    # --------------------------------------------------------
 
-    # ========================================================
-    # 固定国家顺序
-    # ========================================================
+    results.sort(key=sort_key)
 
-    results.sort(
-        key=sort_key
-    )
 
-    # ========================================================
-    # 写入文件
-    # ========================================================
+    # --------------------------------------------------------
+    # 输出
+    # --------------------------------------------------------
 
     with open(
         output_file,
@@ -364,21 +444,19 @@ def main():
         encoding="utf-8"
     ) as f:
 
-        for result in results:
-            f.write(result + "\n")
+        for item in results:
+            f.write(item + "\n")
 
-    # ========================================================
+
+    # --------------------------------------------------------
     # 统计
-    # ========================================================
+    # --------------------------------------------------------
 
-    print()
-    print("=" * 60)
-    print("检测完成")
+    print("")
     print(f"原始数量：{len(targets)}")
     print(f"成功数量：{len(results)}")
     print(f"失败数量：{len(targets) - len(results)}")
     print(f"输出文件：{output_file}")
-    print("=" * 60)
 
 
 if __name__ == "__main__":
