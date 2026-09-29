@@ -1,11 +1,9 @@
-
 name: 检测三国.txt
 
 on:
   push:
     paths:
       - "三国.txt"
-
   workflow_dispatch:
 
 permissions:
@@ -16,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: 拉取仓库
         uses: actions/checkout@v4
 
@@ -29,9 +26,18 @@ jobs:
         run: |
           pip install requests
 
-      - name: 合并并检测 IP
+      - name: 合并并重新检测
         run: |
-          python scripts/check_proxy.py 三国.txt 已筛.txt 已筛.txt
+          python scripts/check_proxy.py 三国.txt 已筛.txt 已筛_new.txt
+
+      - name: 用新结果替换已筛.txt
+        run: |
+          if [ ! -f "已筛_new.txt" ]; then
+            echo "没有生成新的检测结果，保留原已筛.txt"
+            exit 0
+          fi
+
+          mv -f 已筛_new.txt 已筛.txt
 
       - name: 提交已筛.txt
         run: |
