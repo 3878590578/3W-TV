@@ -3,7 +3,6 @@
 42.200.176.163:443#HK Hong Kong AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
 42.200.176.168:443#HK Hong Kong AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
 42.200.231.108:443#HK Hong Kong AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
-3.0.245.30:443#SG Singapore AS16509 Amazon.com, Inc.
 3.1.187.169:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.31.121:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.33.11:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -95,7 +94,6 @@
 139.180.187.152:443#SG Singapore AS20473 Vultr Holdings, LLC
 139.180.220.7:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.220.87:443#SG Singapore AS20473 The Constant Company, LLC
-149.28.130.212:443#SG Singapore AS20473 The Constant Company, LLC
 149.28.135.30:443#SG Singapore AS20473 The Constant Company, LLC
 149.28.137.52:443#SG Singapore AS20473 The Constant Company, LLC
 149.28.139.185:443#SG Singapore AS20473 Vultr Holdings, LLC
@@ -124,7 +122,6 @@
 91.200.243.225:443#JP Tokyo AS3258 xTom Japan Corporation
 103.47.186.75:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
 103.47.186.130:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
-103.47.186.135:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
 103.53.80.84:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
 103.53.80.239:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
 103.201.130.126:443#JP Tokyo AS3258 xTom Japan Corporation
