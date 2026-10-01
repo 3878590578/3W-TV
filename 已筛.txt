@@ -13,11 +13,14 @@
 13.212.126.228:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.207.124:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.210.118:443#SG Singapore AS16509 Amazon.com, Inc.
+13.212.245.171:443#SG Singapore AS16509 Amazon Data Services Singapore
 13.213.38.199:443#SG Singapore AS16509 Amazon.com, Inc.
 13.213.232.214:443#SG Singapore AS16509 Amazon.com, Inc.
+13.215.95.201:443#SG Singapore AS16509 Amazon.com, Inc.
 13.215.182.29:443#SG Singapore AS16509 Amazon.com, Inc.
 13.215.195.63:443#SG Singapore AS16509 Amazon.com, Inc.
 13.215.229.246:443#SG Singapore AS16509 Amazon.com, Inc.
+13.228.2.85:443#SG Singapore AS16509 Amazon.com, Inc.
 13.250.17.35:443#SG Singapore AS16509 Amazon.com, Inc.
 13.250.78.140:443#SG Singapore AS16509 Amazon.com, Inc.
 13.250.129.244:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -62,6 +65,54 @@
 56.10.67.92:443#SG Singapore AS16509 Amazon.com, Inc.
 122.248.238.214:443#SG Singapore AS16509 Amazon.com, Inc.
 175.41.159.44:443#SG Singapore AS16509 Amazon.com, Inc.
+45.32.100.162:443#SG Singapore AS20473 Vultr Holdings, LLC
+45.32.109.225:443#SG Singapore AS20473 The Constant Company, LLC
+45.32.121.27:443#SG Singapore AS20473 The Constant Company, LLC
+45.32.123.57:443#SG Singapore AS20473 Vultr Holdings, LLC
+45.32.124.17:443#SG Singapore AS20473 Vultr Holdings, LLC
+45.76.158.46:443#SG Singapore AS20473 The Constant Company, LLC
+45.76.158.173:443#SG Singapore AS20473 The Constant Company, LLC
+45.76.176.86:443#SG Singapore AS20473 The Constant Company, LLC
+45.76.178.112:443#SG Singapore AS20473 The Constant Company, LLC
+45.76.187.126:443#SG Singapore AS20473 The Constant Company, LLC
+45.76.189.166:443#SG Singapore AS20473 The Constant Company, LLC
+45.77.32.75:443#SG Singapore AS20473 Vultr Holdings, LLC
+45.77.36.140:443#SG Singapore AS20473 Vultr Holdings, LLC
+45.77.173.72:443#SG Singapore AS20473 The Constant Company, LLC
+45.77.174.162:443#SG Singapore AS20473 The Constant Company, LLC
+45.77.240.140:443#SG Singapore AS20473 Vultr Holdings, LLC
+45.77.243.191:443#SG Singapore AS20473 The Constant Company, LLC
+45.77.254.160:443#SG Singapore AS20473 The Constant Company, LLC
+66.42.54.67:443#SG Singapore AS20473 The Constant Company, LLC
+66.42.61.215:443#SG Singapore AS20473 The Constant Company, LLC
+139.180.135.10:443#SG Singapore AS20473 The Constant Company, LLC
+139.180.137.157:443#SG Singapore AS20473 Vultr Holdings, LLC
+139.180.144.145:443#SG Singapore AS20473 The Constant Company, LLC
+139.180.145.3:443#SG Singapore AS20473 The Constant Company, LLC
+139.180.152.37:443#SG Singapore AS20473 The Constant Company, LLC
+139.180.154.75:443#SG Singapore AS20473 The Constant Company, LLC
+139.180.159.58:443#SG Singapore AS20473 SGP_VULTR_CUST
+139.180.187.152:443#SG Singapore AS20473 Vultr Holdings, LLC
+139.180.220.7:443#SG Singapore AS20473 The Constant Company, LLC
+139.180.220.87:443#SG Singapore AS20473 The Constant Company, LLC
+149.28.130.212:443#SG Singapore AS20473 The Constant Company, LLC
+149.28.135.30:443#SG Singapore AS20473 The Constant Company, LLC
+149.28.137.52:443#SG Singapore AS20473 The Constant Company, LLC
+149.28.139.185:443#SG Singapore AS20473 Vultr Holdings, LLC
+149.28.140.125:443#SG Singapore AS20473 The Constant Company, LLC
+149.28.148.20:443#SG Singapore AS20473 The Constant Company, LLC
+149.28.150.141:443#SG Singapore AS20473 The Constant Company, LLC
+149.28.150.210:443#SG Singapore AS20473 The Constant Company, LLC
+149.28.153.207:443#SG Singapore AS20473 Vultr Holdings, LLC
+149.28.154.5:443#SG Singapore AS20473 Vultr Holdings, LLC
+149.28.159.87:443#SG Singapore AS20473 The Constant Company, LLC
+207.148.70.252:443#SG Singapore AS20473 The Constant Company, LLC
+207.148.71.119:443#SG Singapore AS20473 Vultr Holdings, LLC
+207.148.73.18:443#SG Singapore AS20473 The Constant Company, LLC
+207.148.79.171:443#SG Singapore AS20473 The Constant Company, LLC
+207.148.120.87:443#SG Singapore AS20473 The Constant Company, LLC
+207.148.123.149:443#SG Singapore AS20473 The Constant Company, LLC
+207.148.127.23:443#SG Singapore AS20473 The Constant Company, LLC
 36.50.85.6:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd
 45.94.40.102:443#JP Tokyo AS3258 xTom Japan Corporation
 45.128.210.34:443#JP Tokyo AS3258 xTom Japan Corporation
@@ -89,10 +140,12 @@
 64.186.241.132:443#US Los Angeles AS906 Private Customer
 64.186.245.27:443#US Los Angeles AS906 DMIT Cloud Services
 69.63.221.164:443#US Los Angeles AS906 DMIT Cloud Services
+69.63.222.24:443#US Los Angeles AS906 DMIT Cloud Services
 154.17.26.99:443#US Los Angeles AS906 DMIT Cloud Services
 154.17.29.72:443#US Los Angeles AS906 DMIT Cloud Services
 154.17.31.116:443#US Los Angeles AS906 DMIT Cloud Services
 154.21.82.24:443#US Los Angeles AS906 Private Customer
+154.21.89.121:443#US Los Angeles AS906 DMIT Cloud Services
 154.26.184.229:443#US Los Angeles AS906 DMIT Cloud Services
 154.26.189.91:443#US Los Angeles AS906 DMIT Cloud Services
 174.136.205.28:443#US Los Angeles AS906 DMIT Cloud Services
