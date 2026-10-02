@@ -2,7 +2,7 @@
 42.200.173.201:443#HK Hong Kong AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
 42.200.176.163:443#HK Hong Kong AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
 42.200.176.168:443#HK Hong Kong AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
-42.200.231.108:443#HK Hong Kong AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
+42.200.231.108:443#HK Tsuen Wan AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
 3.1.187.169:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.31.121:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.33.11:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -128,12 +128,10 @@
 109.107.140.90:443#JP Tokyo AS3258 xTom
 149.62.44.41:443#JP Tokyo AS3258 xTom Japan Corporation
 185.200.64.148:443#JP Tokyo AS3258 xTom Japan Corporation
-193.32.151.40:443#JP Tokyo AS3258 xTom Japan Corporation
 195.245.242.188:443#JP Tokyo AS3258 xTom Japan Corporation
 45.59.186.102:443#US Los Angeles AS906 DMIT Cloud Services
 45.59.187.125:443#US Los Angeles AS906 DMIT Cloud Services
 64.186.227.15:443#US Los Angeles AS906 DMIT Cloud Services
-64.186.228.225:443#US Los Angeles AS906 DMIT Cloud Services
 64.186.241.132:443#US Los Angeles AS906 Private Customer
 64.186.245.27:443#US Los Angeles AS906 DMIT Cloud Services
 69.63.221.164:443#US Los Angeles AS906 DMIT Cloud Services
