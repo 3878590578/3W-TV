@@ -18,33 +18,100 @@ echo "============================================================"
 echo ""
 
 # ============================================================
-# 生成 REALITY X25519 密钥
+# 生成 / 读取 REALITY X25519 密钥
 # ============================================================
 
 if [ ! -f "$KEY_FILE" ]; then
 
     echo "[INFO] 首次启动，正在生成 REALITY X25519 密钥..."
 
-    X25519_OUTPUT="$(xray x25519)"
+    X25519_OUTPUT="$(xray x25519 2>&1)"
 
-    PRIVATE_KEY="$(printf '%s\n' "$X25519_OUTPUT" \
-        | grep '^PrivateKey:' \
-        | sed 's/^PrivateKey:[[:space:]]*//')"
+    echo ""
+    echo "[DEBUG] Xray x25519 输出："
+    echo "$X25519_OUTPUT"
+    echo ""
 
-    PUBLIC_KEY="$(printf '%s\n' "$X25519_OUTPUT" \
-        | grep '^Password (PublicKey):' \
-        | sed 's/^Password (PublicKey):[[:space:]]*//')"
+    # --------------------------------------------------------
+    # PrivateKey
+    # 兼容：
+    # Private key: xxxx
+    # PrivateKey: xxxx
+    # --------------------------------------------------------
+
+    PRIVATE_KEY="$(
+        printf '%s\n' "$X25519_OUTPUT" \
+        | awk -F': ' '
+            /^PrivateKey:/ {
+                print $2
+                exit
+            }
+            /^Private key:/ {
+                print $2
+                exit
+            }
+        '
+    )"
+
+    # --------------------------------------------------------
+    # PublicKey
+    # 兼容：
+    # Public key: xxxx
+    # Password: xxxx
+    # Password (PublicKey): xxxx
+    #
+    # 这里直接取对应行最后一个字段
+    # --------------------------------------------------------
+
+    PUBLIC_KEY="$(
+        printf '%s\n' "$X25519_OUTPUT" \
+        | awk '
+            /^Password \(PublicKey\):/ {
+                print $NF
+                exit
+            }
+            /^Password:/ {
+                print $NF
+                exit
+            }
+            /^Public key:/ {
+                print $NF
+                exit
+            }
+        '
+    )"
+
+    # --------------------------------------------------------
+    # 最终检查
+    # --------------------------------------------------------
 
     if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
+
         echo ""
+        echo "============================================================"
         echo "[ERROR] REALITY 密钥解析失败"
+        echo "============================================================"
         echo ""
+        echo "PrivateKey = [$PRIVATE_KEY]"
+        echo "PublicKey  = [$PUBLIC_KEY]"
+        echo ""
+        echo "Xray 原始输出："
         echo "$X25519_OUTPUT"
         echo ""
+
         exit 1
     fi
 
-    printf '%s\n%s\n' "$PRIVATE_KEY" "$PUBLIC_KEY" > "$KEY_FILE"
+    # --------------------------------------------------------
+    # 保存密钥
+    # --------------------------------------------------------
+
+    mkdir -p "$(dirname "$KEY_FILE")"
+
+    printf '%s\n' "$PRIVATE_KEY" > "$KEY_FILE"
+    printf '%s\n' "$PUBLIC_KEY" >> "$KEY_FILE"
+
+    chmod 600 "$KEY_FILE"
 
     echo "[OK] REALITY 密钥生成成功"
 
@@ -119,27 +186,21 @@ if [ -z "$TCP_DOMAIN" ] || [ -z "$TCP_PORT" ]; then
     echo "[ERROR] Railway TCP Proxy 尚未配置"
     echo "============================================================"
     echo ""
-    echo "请在 Railway："
+    echo "内部端口必须是：443"
     echo ""
-    echo "Service"
-    echo " → Settings"
-    echo " → Networking"
-    echo " → TCP Proxy"
-    echo ""
-    echo "内部端口：443"
-    echo ""
+
     exit 1
 
 fi
 
 # ============================================================
-# 生成 VLESS Reality URI
+# 生成完整 VLESS Reality URI
 # ============================================================
 
 VLESS_URL="vless://${UUID}@${TCP_DOMAIN}:${TCP_PORT}?encryption=none&flow=${FLOW}&security=reality&sni=${SNI}&fp=chrome&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}&type=tcp#VLESS-Reality-SG"
 
 # ============================================================
-# 输出节点信息
+# 输出节点
 # ============================================================
 
 echo ""
@@ -177,7 +238,9 @@ echo "[INFO] 检查 Xray 配置..."
 if ! xray run -test -c "$RUNTIME_CONFIG"; then
 
     echo ""
+    echo "============================================================"
     echo "[ERROR] Xray 配置检查失败"
+    echo "============================================================"
     echo ""
 
     exit 1
