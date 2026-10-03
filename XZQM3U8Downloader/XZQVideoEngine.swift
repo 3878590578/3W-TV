@@ -2,233 +2,300 @@ import Foundation
 
 @MainActor
 final class XZQVideoEngine {
+    private let threads: Int
+    private let retryCount: Int
 
-    private let segmentDownloader: XZQSegmentDownloader
     private let merger = XZQTSMerger()
 
     init(
-        threads: Int = 16,
-        retryCount: Int = 5
+        threads: Int,
+        retryCount: Int
     ) {
-        self.segmentDownloader = XZQSegmentDownloader(
-            concurrency: threads,
-            retryCount: retryCount
+        self.threads = min(
+            max(1, threads),
+            16
+        )
+
+        self.retryCount = min(
+            max(0, retryCount),
+            10
         )
     }
 
     func run(
-        task: XZQDownloadTask,
-        workingDirectory: URL,
-        progress: @escaping @MainActor (
-            Int,
-            Int,
-            Int64,
-            Double,
-            Double?
-        ) -> Void
-    ) async throws -> URL {
-
-        guard let playlistURL = URL(
-            string: task.url
-        ) else {
-            throw XZQVideoEngineError.invalidURL
+        task: XZQDownloadTask?,
+        onProgress: @escaping @Sendable (XZQDownloadProgress) -> Void,
+        onFinished: @escaping @Sendable (Result<URL, Error>) -> Void
+    ) async {
+        guard let task else {
+            onFinished(
+                .failure(
+                    XZQDownloadError.invalidURL
+                )
+            )
+            return
         }
 
-        let playlistText = try await XZQHTTPClient.shared.getText(
-            from: playlistURL
-        )
+        do {
+            try Task.checkCancellation()
 
-        let parser = XZQM3U8Parser()
-
-        let playlist = try parser.parse(
-            playlistText,
-            baseURL: playlistURL.deletingLastPathComponent()
-        )
-
-        let segmentDirectory = workingDirectory
-            .appendingPathComponent(
-                "segments",
-                isDirectory: true
+            let playlistText = try await XZQHTTPClient.shared.getText(
+                from: task.url
             )
 
-        try FileManager.default.createDirectory(
-            at: segmentDirectory,
-            withIntermediateDirectories: true
-        )
-
-        var manifest =
-            (try? XZQManifestStorage.load(
-                from: segmentDirectory
-            )) ??
-            XZQSegmentManifest(
-                taskID: task.id,
-                playlistURL: task.url,
-                videoName: task.name,
-                segments: playlist.segments.map {
-                    XZQSegmentState(
-                        id: $0.id,
-                        url: $0.url.absoluteString,
-                        duration: $0.duration
-                    )
-                }
+            let playlist = try XZQHLSPlaylistParser.parse(
+                playlistText,
+                baseURL: task.url
             )
 
-        try XZQManifestStorage.save(
-            manifest,
-            to: segmentDirectory
-        )
+            guard !playlist.segments.isEmpty else {
+                throw XZQDownloadError.playlistEmpty
+            }
 
-        let total = manifest.segments.count
-        let initialCompleted = manifest.completedCount
-        let initialBytes = manifest.downloadedBytes
-
-        var statistics = XZQDownloadStatistics()
-
-        statistics.begin(
-            totalSegments: total
-        )
-
-        statistics.restore(
-            completedSegments: initialCompleted,
-            totalSegments: total,
-            downloadedBytes: initialBytes,
-            totalBytes: 0
-        )
-
-        progress(
-            initialCompleted,
-            total,
-            initialBytes,
-            statistics.progress,
-            statistics.etaSeconds
-        )
-
-        await withTaskGroup(of: XZQSegmentResult?.self) { group in
-
-            for segmentState in manifest.segments
-            where !segmentState.downloaded {
-
-                guard let segmentURL = URL(
-                    string: segmentState.url
-                ) else {
-                    continue
-                }
-
-                let segment = XZQSegment(
-                    id: segmentState.id,
-                    url: segmentURL,
-                    duration: segmentState.duration
+            let workingDirectory =
+                XZQFileHelper.workingDirectory(
+                    for: task.id
                 )
 
-                let destination = segmentDirectory
-                    .appendingPathComponent(
-                        String(
-                            format: "%08d.ts",
-                            segment.id
+            let segmentDirectory =
+                XZQFileHelper.segmentsDirectory(
+                    for: task.id
+                )
+
+            var manifest = makeManifest(
+                task: task,
+                playlist: playlist
+            )
+
+            if let saved = XZQSegmentManifest.load(
+                from: workingDirectory
+            ),
+            saved.playlistURL == task.url,
+            saved.segments.count == playlist.segments.count {
+                manifest = saved
+            } else {
+                try manifest.save(
+                    to: workingDirectory
+                )
+            }
+
+            var statistics = XZQDownloadStatistics()
+
+            let completedBytes = manifest.completedBytes
+
+            statistics.begin(
+                totalBytes: 0,
+                downloadedBytes: completedBytes
+            )
+
+            let segmentDownloader = XZQSegmentDownloader(
+                concurrency: threads,
+                retryCount: retryCount
+            )
+
+            let segmentURLs = playlist.segments.map {
+                segment in
+                segmentDirectory.appendingPathComponent(
+                    XZQTSMerger.segmentFileName(
+                        segment.id
+                    )
+                )
+            }
+
+            let unfinished = playlist.segments.filter {
+                segment in
+                guard let state = manifest.state(
+                    for: segment.id
+                ) else {
+                    return true
+                }
+
+                if state.downloaded {
+                    let fileURL =
+                        segmentDirectory.appendingPathComponent(
+                            XZQTSMerger.segmentFileName(
+                                segment.id
+                            )
                         )
+
+                    return !FileManager.default.fileExists(
+                        atPath: fileURL.path
+                    )
+                }
+
+                return true
+            }
+
+            await MainActor.run {
+                onProgress(
+                    XZQDownloadProgress(
+                        progress: playlist.segments.isEmpty
+                            ? 0
+                            : Double(
+                                manifest.completedCount
+                            ) / Double(
+                                playlist.segments.count
+                            ),
+                        totalSegments: playlist.segments.count,
+                        completedSegments: manifest.completedCount,
+                        downloadedBytes: completedBytes,
+                        totalBytes: 0,
+                        speedBytesPerSecond: 0,
+                        eta: nil
+                    )
+                )
+            }
+
+            try await withThrowingTaskGroup(
+                of: XZQSegmentDownloadResult.self
+            ) { group in
+                for segment in unfinished {
+                    try Task.checkCancellation()
+
+                    let sequence =
+                        playlist.mediaSequence +
+                        Int64(segment.id)
+
+                    let destination =
+                        segmentDirectory.appendingPathComponent(
+                            XZQTSMerger.segmentFileName(
+                                segment.id
+                            )
+                        )
+
+                    group.addTask {
+                        try await segmentDownloader.download(
+                            segment: segment,
+                            sequence: sequence,
+                            to: destination
+                        )
+                    }
+                }
+
+                for try await result in group {
+                    try Task.checkCancellation()
+
+                    manifest.markCompleted(
+                        id: result.id,
+                        byteCount: result.byteCount
                     )
 
-                group.addTask { [segmentDownloader] in
+                    statistics.addBytes(
+                        result.byteCount
+                    )
 
-                    do {
-                        let bytes =
-                            try await segmentDownloader.download(
-                                segment: segment,
-                                destination: destination
+                    statistics.updateSpeed()
+
+                    try manifest.save(
+                        to: workingDirectory
+                    )
+
+                    let total = playlist.segments.count
+
+                    let completed =
+                        manifest.completedCount
+
+                    let progress =
+                        total > 0
+                        ? Double(completed) / Double(total)
+                        : 0
+
+                    await MainActor.run {
+                        onProgress(
+                            XZQDownloadProgress(
+                                progress: progress,
+                                totalSegments: total,
+                                completedSegments: completed,
+                                downloadedBytes:
+                                    manifest.completedBytes,
+                                totalBytes: 0,
+                                speedBytesPerSecond:
+                                    statistics.speedBytesPerSecond,
+                                eta: nil
                             )
-
-                        return XZQSegmentResult(
-                            id: segment.id,
-                            bytes: bytes
                         )
-
-                    } catch {
-                        return nil
                     }
                 }
             }
 
-            for await result in group {
+            try Task.checkCancellation()
 
-                guard let result else {
-                    continue
-                }
-
-                manifest.markCompleted(
-                    id: result.id,
-                    byteCount: result.bytes
-                )
-
-                statistics.addSegment(
-                    byteCount: result.bytes
-                )
-
-                statistics.updateSample()
-
-                try? XZQManifestStorage.save(
-                    manifest,
-                    to: segmentDirectory
-                )
-
-                progress(
-                    statistics.completedSegments,
-                    total,
-                    statistics.downloadedBytes,
-                    statistics.progress,
-                    statistics.etaSeconds
-                )
+            guard manifest.completedCount ==
+                    playlist.segments.count else {
+                throw XZQDownloadError.segmentDownloadFailed
             }
-        }
 
-        guard manifest.completedCount == total else {
-            throw XZQVideoEngineError.incompleteDownload
-        }
+            let outputDirectory =
+                XZQOutputManager.outputDirectory(
+                    for: task
+                )
 
-        let files = manifest.segments
-            .sorted { $0.id < $1.id }
-            .map {
-                segmentDirectory.appendingPathComponent(
-                    String(
-                        format: "%08d.ts",
-                        $0.id
+            try XZQOutputManager.prepareDirectory(
+                outputDirectory
+            )
+
+            let outputURL =
+                XZQFileHelper.uniqueOutputURL(
+                    directory: outputDirectory,
+                    name: task.name,
+                    pathExtension: "mp4"
+                )
+
+            let orderedURLs = segmentURLs
+
+            try merger.merge(
+                segmentURLs: orderedURLs,
+                outputURL: outputURL
+            )
+
+            await MainActor.run {
+                onProgress(
+                    XZQDownloadProgress(
+                        progress: 1,
+                        totalSegments: playlist.segments.count,
+                        completedSegments: playlist.segments.count,
+                        downloadedBytes: manifest.completedBytes,
+                        totalBytes: 0,
+                        speedBytesPerSecond:
+                            statistics.speedBytesPerSecond,
+                        eta: nil
                     )
                 )
             }
 
-        let outputName =
-            XZQFileHelper.safeFileName(task.name)
-            + ".mp4"
-
-        let outputURL =
-            workingDirectory
-                .deletingLastPathComponent()
-                .appendingPathComponent(outputName)
-
-        try merger.merge(
-            segmentFiles: files,
-            outputURL: outputURL
-        )
-
-        return outputURL
-    }
-}
-
-struct XZQSegmentResult: Sendable {
-    let id: Int
-    let bytes: Int64
-}
-
-enum XZQVideoEngineError: LocalizedError {
-    case invalidURL
-    case incompleteDownload
-
-    var errorDescription: String? {
-        switch self {
-        case .invalidURL:
-            return "M3U8 地址无效"
-
-        case .incompleteDownload:
-            return "部分视频分片下载失败"
+            onFinished(.success(outputURL))
+        } catch is CancellationError {
+            onFinished(
+                .failure(
+                    XZQDownloadError.cancelled
+                )
+            )
+        } catch {
+            onFinished(
+                .failure(error)
+            )
         }
+    }
+
+    private func makeManifest(
+        task: XZQDownloadTask,
+        playlist: XZQHLSPlaylist
+    ) -> XZQSegmentManifest {
+        let states = playlist.segments.map {
+            segment in
+
+            XZQSegmentState(
+                id: segment.id,
+                url: segment.url,
+                duration: segment.duration
+            )
+        }
+
+        return XZQSegmentManifest(
+            taskID: task.id,
+            playlistURL: task.url,
+            videoName: task.name,
+            segments: states
+        )
     }
 }
