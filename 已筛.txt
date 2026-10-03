@@ -1,8 +1,5 @@
 154.3.39.40:443#HK Kwai Chung AS906 DMIT Cloud Service - Los Angeles
-42.200.173.201:443#HK Hong Kong AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
-42.200.176.163:443#HK Hong Kong AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
-42.200.176.168:443#HK Hong Kong AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
-42.200.231.108:443#HK Tsuen Wan AS4760 Hong Kong Telecommunications (HKT) Limited Business Internet
+139.180.159.58:443#SG Singapore AS13335 Cloudflare London, LLC
 3.1.187.169:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.31.121:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.33.11:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -71,7 +68,6 @@
 45.32.124.17:443#SG Singapore AS20473 Vultr Holdings, LLC
 45.76.158.46:443#SG Singapore AS20473 The Constant Company, LLC
 45.76.158.173:443#SG Singapore AS20473 The Constant Company, LLC
-45.76.176.86:443#SG Singapore AS20473 The Constant Company, LLC
 45.76.178.112:443#SG Singapore AS20473 The Constant Company, LLC
 45.76.187.126:443#SG Singapore AS20473 The Constant Company, LLC
 45.76.189.166:443#SG Singapore AS20473 The Constant Company, LLC
@@ -90,7 +86,6 @@
 139.180.145.3:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.152.37:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.154.75:443#SG Singapore AS20473 The Constant Company, LLC
-139.180.159.58:443#SG Singapore AS20473 SGP_VULTR_CUST
 139.180.187.152:443#SG Singapore AS20473 Vultr Holdings, LLC
 139.180.220.7:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.220.87:443#SG Singapore AS20473 The Constant Company, LLC
@@ -114,7 +109,6 @@
 36.50.85.6:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd
 45.94.40.102:443#JP Tokyo AS3258 xTom Japan Corporation
 45.128.210.34:443#JP Tokyo AS3258 xTom Japan Corporation
-45.129.8.49:443#JP Tokyo AS3258 xTom Japan Corporation
 45.142.125.14:443#JP Tokyo AS3258 xTom Japan Corporation
 45.142.127.24:443#JP Tokyo AS3258 xTom Japan Corporation
 45.143.235.120:443#JP Tokyo AS3258 xTom Japan Corporation
@@ -141,7 +135,6 @@
 154.17.31.116:443#US Los Angeles AS906 DMIT Cloud Services
 154.21.82.24:443#US Los Angeles AS906 Private Customer
 154.21.89.121:443#US Los Angeles AS906 DMIT Cloud Services
-154.26.184.229:443#US Los Angeles AS906 DMIT Cloud Services
 154.26.189.91:443#US Los Angeles AS906 DMIT Cloud Services
 174.136.205.28:443#US Los Angeles AS906 DMIT Cloud Services
 216.234.141.64:443#US Los Angeles AS906 DMIT Cloud Services
@@ -164,6 +157,5 @@
 172.232.85.65:443#IN Mumbai AS63949 Akamai Connected Cloud / Linode
 172.232.85.173:443#IN Mumbai AS63949 Akamai Connected Cloud / Linode
 172.232.85.192:443#IN Mumbai AS63949 Akamai Connected Cloud / Linode
-172.237.36.81:443#IN Mumbai AS63949 Linode
 172.237.36.109:443#IN Mumbai AS63949 Linode
 192.46.211.6:443#IN Mumbai AS63949 Akamai Connected Cloud / Linode
