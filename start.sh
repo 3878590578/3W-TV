@@ -9,7 +9,6 @@ KEY_FILE="/app/data/reality.key"
 UUID="648f778f-f591-48e0-9d3f-4fc1dc991d11"
 SHORT_ID="f923a66867de26b2"
 SNI="www.microsoft.com"
-TARGET="www.microsoft.com:443"
 FLOW="xtls-rprx-vision"
 
 echo ""
@@ -23,29 +22,39 @@ echo ""
 # ============================================================
 
 if [ ! -f "$KEY_FILE" ]; then
+
     echo "[INFO] 首次启动，正在生成 REALITY X25519 密钥..."
 
-    xray x25519 > /tmp/x25519.txt
+    X25519_OUTPUT="$(xray x25519)"
 
-    PRIVATE_KEY=$(grep -E '^Private key:' /tmp/x25519.txt | sed 's/^Private key: *//')
-    PUBLIC_KEY=$(grep -E '^Public key:' /tmp/x25519.txt | sed 's/^Public key: *//')
+    PRIVATE_KEY="$(printf '%s\n' "$X25519_OUTPUT" \
+        | grep '^PrivateKey:' \
+        | sed 's/^PrivateKey:[[:space:]]*//')"
+
+    PUBLIC_KEY="$(printf '%s\n' "$X25519_OUTPUT" \
+        | grep '^Password (PublicKey):' \
+        | sed 's/^Password (PublicKey):[[:space:]]*//')"
 
     if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
-        echo "[ERROR] REALITY 密钥生成失败"
-        cat /tmp/x25519.txt
+        echo ""
+        echo "[ERROR] REALITY 密钥解析失败"
+        echo ""
+        echo "$X25519_OUTPUT"
+        echo ""
         exit 1
     fi
 
     printf '%s\n%s\n' "$PRIVATE_KEY" "$PUBLIC_KEY" > "$KEY_FILE"
 
-    rm -f /tmp/x25519.txt
+    echo "[OK] REALITY 密钥生成成功"
 
-    echo "[OK] REALITY 密钥生成完成"
 else
+
     echo "[INFO] 读取已有 REALITY 密钥"
 
-    PRIVATE_KEY=$(sed -n '1p' "$KEY_FILE")
-    PUBLIC_KEY=$(sed -n '2p' "$KEY_FILE")
+    PRIVATE_KEY="$(sed -n '1p' "$KEY_FILE")"
+    PUBLIC_KEY="$(sed -n '2p' "$KEY_FILE")"
+
 fi
 
 # ============================================================
@@ -53,8 +62,13 @@ fi
 # ============================================================
 
 if [ -z "$PRIVATE_KEY" ] || [ -z "$PUBLIC_KEY" ]; then
+
+    echo ""
     echo "[ERROR] REALITY 密钥为空"
+    echo ""
+
     exit 1
+
 fi
 
 # ============================================================
@@ -62,6 +76,7 @@ fi
 # ============================================================
 
 python3 - "$CONFIG" "$RUNTIME_CONFIG" "$PRIVATE_KEY" <<'PY'
+
 import json
 import sys
 
@@ -81,44 +96,50 @@ reality = (
 reality["privateKey"] = private_key
 
 with open(target, "w", encoding="utf-8") as f:
-    json.dump(config, f, ensure_ascii=False, indent=2)
+    json.dump(
+        config,
+        f,
+        ensure_ascii=False,
+        indent=2
+    )
+
 PY
 
 # ============================================================
-# 检查 Railway TCP Proxy
+# Railway TCP Proxy
 # ============================================================
 
 TCP_DOMAIN="${RAILWAY_TCP_PROXY_DOMAIN:-}"
 TCP_PORT="${RAILWAY_TCP_PROXY_PORT:-}"
 
 if [ -z "$TCP_DOMAIN" ] || [ -z "$TCP_PORT" ]; then
+
     echo ""
     echo "============================================================"
     echo "[ERROR] Railway TCP Proxy 尚未配置"
     echo "============================================================"
     echo ""
-    echo "请进入："
+    echo "请在 Railway："
     echo ""
     echo "Service"
-    echo "  → Settings"
-    echo "  → Networking"
-    echo "  → TCP Proxy"
+    echo " → Settings"
+    echo " → Networking"
+    echo " → TCP Proxy"
     echo ""
-    echo "内部端口填写：443"
-    echo ""
-    echo "创建完成后重新部署。"
+    echo "内部端口：443"
     echo ""
     exit 1
+
 fi
 
 # ============================================================
-# 生成完整 VLESS Reality 链接
+# 生成 VLESS Reality URI
 # ============================================================
 
-VLESS_URL="vless://${UUID}@${TCP_DOMAIN}:${TCP_PORT}?security=reality&sni=${SNI}&fp=chrome&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}&flow=${FLOW}&type=tcp&encryption=none#VLESS-Reality-SG"
+VLESS_URL="vless://${UUID}@${TCP_DOMAIN}:${TCP_PORT}?encryption=none&flow=${FLOW}&security=reality&sni=${SNI}&fp=chrome&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}&type=tcp#VLESS-Reality-SG"
 
 # ============================================================
-# 输出节点
+# 输出节点信息
 # ============================================================
 
 echo ""
@@ -126,10 +147,12 @@ echo "============================================================"
 echo "                 NODE INFORMATION"
 echo "============================================================"
 echo ""
+
 echo "[VLESS + REALITY]"
 echo ""
 echo "$VLESS_URL"
 echo ""
+
 echo "------------------------------------------------------------"
 echo "Server      : $TCP_DOMAIN"
 echo "Port        : $TCP_PORT"
@@ -139,9 +162,29 @@ echo "Short ID    : $SHORT_ID"
 echo "UUID        : $UUID"
 echo "Flow        : $FLOW"
 echo ""
+
 echo "============================================================"
 echo "              COPY THE VLESS URL ABOVE"
 echo "============================================================"
+echo ""
+
+# ============================================================
+# 检查 Xray 配置
+# ============================================================
+
+echo "[INFO] 检查 Xray 配置..."
+
+if ! xray run -test -c "$RUNTIME_CONFIG"; then
+
+    echo ""
+    echo "[ERROR] Xray 配置检查失败"
+    echo ""
+
+    exit 1
+
+fi
+
+echo "[OK] Xray 配置检查通过"
 echo ""
 
 # ============================================================
@@ -149,5 +192,6 @@ echo ""
 # ============================================================
 
 echo "[INFO] 正在启动 Xray..."
+echo ""
 
 exec xray run -c "$RUNTIME_CONFIG"
