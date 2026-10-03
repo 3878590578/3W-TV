@@ -13,24 +13,12 @@ struct XZQContentView: View {
         NavigationView {
             VStack(spacing: 12) {
                 inputSection
-
                 controlSection
 
+                XZQDownloadSummaryView()
+
                 if controller.tasks.isEmpty {
-                    Spacer()
-
-                    Image(systemName: "arrow.down.circle")
-                        .font(.system(size: 42))
-                        .foregroundColor(.secondary)
-
-                    Text("暂无下载任务")
-                        .foregroundColor(.secondary)
-
-                    Text("每行输入：M3U8地址#视频名称")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    Spacer()
+                    emptyView
                 } else {
                     taskSection
                 }
@@ -113,7 +101,11 @@ struct XZQContentView: View {
                     Label("添加任务", systemImage: "plus")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(
+                    inputText
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                        .isEmpty
+                )
 
                 Button {
                     controller.startAll()
@@ -129,18 +121,37 @@ struct XZQContentView: View {
                     Label("暂停", systemImage: "pause.fill")
                 }
                 .buttonStyle(.bordered)
-                .disabled(controller.tasks.isEmpty)
+                .disabled(controller.activeTaskCount == 0)
             }
 
             HStack {
                 Text("任务 \(controller.tasks.count)")
                 Spacer()
-                Text("同时下载 \(controller.maxVideos)")
+                Text("同时 \(controller.maxVideos)")
                 Spacer()
                 Text("单视频 \(controller.threadsPerVideo) 分片")
             }
             .font(.caption2)
             .foregroundColor(.secondary)
+        }
+    }
+
+    private var emptyView: some View {
+        VStack(spacing: 8) {
+            Spacer()
+
+            Image(systemName: "arrow.down.circle")
+                .font(.system(size: 42))
+                .foregroundColor(.secondary)
+
+            Text("暂无下载任务")
+                .foregroundColor(.secondary)
+
+            Text("每行输入：M3U8地址#视频名称")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Spacer()
         }
     }
 
@@ -163,15 +174,14 @@ struct XZQContentView: View {
         }
     }
 
-    private func handleImportedFile(
-        _ result: Result<[URL], Error>
-    ) {
+    private func handleImportedFile(_ result: Result<[URL], Error>) {
         guard case .success(let urls) = result,
               let url = urls.first else {
             return
         }
 
         let accessed = url.startAccessingSecurityScopedResource()
+
         defer {
             if accessed {
                 url.stopAccessingSecurityScopedResource()
@@ -179,8 +189,7 @@ struct XZQContentView: View {
         }
 
         do {
-            let text = try String(contentsOf: url, encoding: .utf8)
-            inputText = text
+            inputText = try XZQDocumentService.readText(from: url)
         } catch {
             inputText = ""
         }
