@@ -1,70 +1,71 @@
 import Foundation
 
 final class XZQTSMerger {
+    private let fileManager = FileManager.default
+    private let bufferSize = 1024 * 1024
 
     func merge(
-        segmentFiles: [URL],
+        segmentURLs: [URL],
         outputURL: URL
     ) throws {
-
-        guard !segmentFiles.isEmpty else {
-            throw XZQTSMergerError.noSegments
+        guard !segmentURLs.isEmpty else {
+            throw XZQDownloadError.mergeFailed
         }
 
-        try XZQFileHelper.removeItemIfExists(
-            at: outputURL
+        try fileManager.createDirectory(
+            at: outputURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
         )
 
-        FileManager.default.createFile(
+        if fileManager.fileExists(
+            atPath: outputURL.path
+        ) {
+            try fileManager.removeItem(
+                at: outputURL
+            )
+        }
+
+        guard fileManager.createFile(
             atPath: outputURL.path,
             contents: nil
-        )
+        ) else {
+            throw XZQDownloadError.outputUnavailable
+        }
 
         guard let outputHandle = try? FileHandle(
             forWritingTo: outputURL
         ) else {
-            throw XZQTSMergerError.outputUnavailable
+            throw XZQDownloadError.outputUnavailable
         }
 
         defer {
             try? outputHandle.close()
         }
 
-        for fileURL in segmentFiles.sorted(
-            by: {
-                $0.lastPathComponent <
-                $1.lastPathComponent
-            }
-        ) {
+        for url in segmentURLs {
+            try Task.checkCancellation()
 
-            if Task.isCancelled {
-                throw CancellationError()
-            }
-
-            guard FileManager.default.fileExists(
-                atPath: fileURL.path
+            guard fileManager.fileExists(
+                atPath: url.path
             ) else {
-                throw XZQTSMergerError.missingSegment(
-                    fileURL.lastPathComponent
-                )
+                throw XZQDownloadError.mergeFailed
             }
 
             guard let inputHandle = try? FileHandle(
-                forReadingFrom: fileURL
+                forReadingFrom: url
             ) else {
-                throw XZQTSMergerError.readFailed(
-                    fileURL.lastPathComponent
-                )
+                throw XZQDownloadError.mergeFailed
+            }
+
+            defer {
+                try? inputHandle.close()
             }
 
             while true {
-                if Task.isCancelled {
-                    try? inputHandle.close()
-                    throw CancellationError()
-                }
+                try Task.checkCancellation()
 
-                let data = inputHandle.readData(
-                    ofLength: 1024 * 1024
+                let data = try inputHandle.read(
+                    ofLength: bufferSize
                 )
 
                 if data.isEmpty {
@@ -75,31 +76,30 @@ final class XZQTSMerger {
                     contentsOf: data
                 )
             }
-
-            try? inputHandle.close()
         }
     }
-}
 
-enum XZQTSMergerError: LocalizedError {
-    case noSegments
-    case outputUnavailable
-    case missingSegment(String)
-    case readFailed(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .noSegments:
-            return "没有可合并的分片"
-
-        case .outputUnavailable:
-            return "无法创建输出视频"
-
-        case .missingSegment(let name):
-            return "缺少分片：\(name)"
-
-        case .readFailed(let name):
-            return "无法读取分片：\(name)"
+    func segmentURLs(
+        in directory: URL,
+        count: Int
+    ) -> [URL] {
+        guard count > 0 else {
+            return []
         }
+
+        return (0..<count).map {
+            directory.appendingPathComponent(
+                segmentFileName($0)
+            )
+        }
+    }
+
+    static func segmentFileName(
+        _ id: Int
+    ) -> String {
+        String(
+            format: "segment_%06d.ts",
+            id
+        )
     }
 }
