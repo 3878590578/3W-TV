@@ -3,7 +3,7 @@ FROM debian:bookworm-slim
 ARG XRAY_VERSION=26.9.8
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl unzip \
+    && apt-get install -y --no-install-recommends ca-certificates curl unzip openssl python3 \
     && rm -rf /var/lib/apt/lists/* \
     && curl -L --fail \
        "https://github.com/XTLS/Xray-core/releases/download/v${XRAY_VERSION}/Xray-linux-64.zip" \
@@ -17,9 +17,9 @@ WORKDIR /app
 COPY config.json /app/config.json
 COPY start.sh /app/start.sh
 
-RUN chmod +x /app/start.sh
+RUN chmod +x /app/start.sh \
+    && mkdir -p /app/data
 
 EXPOSE 443
-EXPOSE 8388
 
 CMD ["/app/start.sh"]
