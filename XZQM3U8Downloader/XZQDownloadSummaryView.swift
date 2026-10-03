@@ -1,61 +1,50 @@
 import SwiftUI
 
 struct XZQDownloadSummaryView: View {
-    @EnvironmentObject private var controller:
-        XZQDownloadController
+    @EnvironmentObject private var controller: XZQDownloadController
 
     var body: some View {
-        VStack(
-            alignment: .leading,
-            spacing: 6
-        ) {
+        VStack(spacing: 8) {
             HStack {
-                Text("下载概况")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("总进度")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Text("\(Int(controller.overallProgress * 100))%")
+                        .font(.headline)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("速度")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Text(
+                        XZQFormatHelper.speedString(
+                            controller.overallSpeed
+                        )
+                    )
                     .font(.headline)
-
-                Spacer()
-
-                Text(
-                    "\(controller.activeTaskCount) / " +
-                    "\(controller.maxVideos)"
-                )
-                .font(.caption)
-                .foregroundColor(
-                    .secondary
-                )
+                }
             }
 
-            ProgressView(
-                value: controller.overallProgress
-            )
+            ProgressView(value: controller.overallProgress)
 
             HStack {
-                Text(
-                    String(
-                        format: "总体 %.1f%%",
-                        controller.overallProgress * 100
-                    )
-                )
-
+                Text("运行中 \(controller.activeTaskCount)")
                 Spacer()
-
-                Text(
-                    XZQFormatHelper.speedString(
-                        controller.overallSpeed
-                    )
-                )
+                Text("总任务 \(controller.tasks.count)")
             }
-            .font(.caption)
+            .font(.caption2)
             .foregroundColor(.secondary)
         }
-        .padding()
+        .padding(10)
         .background(
-            RoundedRectangle(
-                cornerRadius: 12
-            )
-            .fill(
-                Color.secondary.opacity(0.08)
-            )
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.secondary.opacity(0.08))
         )
     }
 }
