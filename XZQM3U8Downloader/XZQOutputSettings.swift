@@ -1,63 +1,44 @@
 import Foundation
 
-enum XZQOutputSettings {
-    private static let directoryKey =
-        "XZQ.OutputSettings.Directory"
+struct XZQOutputSettings: Codable, Sendable {
+    var folderBookmark: Data?
 
-    static func save(
-        _ url: URL
-    ) {
-        UserDefaults.standard.set(
-            url.bookmarkDataSafe,
-            forKey: directoryKey
-        )
+    init(folderBookmark: Data? = nil) {
+        self.folderBookmark = folderBookmark
     }
 
-    static func restore() -> URL? {
-        guard let data =
-            UserDefaults.standard.data(
-                forKey: directoryKey
-            ) else {
+    func resolvedFolder() -> URL? {
+        guard let folderBookmark else {
             return nil
         }
 
-        var stale = false
+        var isStale = false
 
-        guard let url = try? URL(
-            resolvingBookmarkData: data,
-            options: [
-                .withSecurityScope,
-                .withoutUI
-            ],
-            relativeTo: nil,
-            bookmarkDataIsStale: &stale
-        ) else {
+        do {
+            return try URL(
+                resolvingBookmarkData: folderBookmark,
+                options: [.withSecurityScope],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            )
+        } catch {
             return nil
         }
+    }
 
-        if stale {
-            save(url)
+    static func make(for folder: URL) -> XZQOutputSettings? {
+        do {
+            let bookmark = try folder.bookmarkData(
+                options: [.withSecurityScope],
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+
+            return XZQOutputSettings(
+                folderBookmark: bookmark
+            )
+        } catch {
+            return nil
         }
-
-        return url
-    }
-
-    static func clear() {
-        UserDefaults.standard.removeObject(
-            forKey: directoryKey
-        )
-    }
-}
-
-private extension URL {
-    var bookmarkDataSafe: Data? {
-        try? bookmarkData(
-            options: [
-                .withSecurityScope,
-                .securityScopeAllowOnlyReadAccess
-            ],
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        )
     }
 }
