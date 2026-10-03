@@ -1,77 +1,47 @@
 import Foundation
-import UniformTypeIdentifiers
 
 enum XZQDocumentService {
-    static func readText(
-        from url: URL
-    ) throws -> String {
-        let accessed =
-            url.startAccessingSecurityScopedResource()
+    static func readText(from url: URL) throws -> String {
+        let data = try Data(contentsOf: url)
 
-        defer {
-            if accessed {
-                url.stopAccessingSecurityScopedResource()
-            }
+        if let text = String(data: data, encoding: .utf8) {
+            return text
         }
 
-        let data = try Data(
-            contentsOf: url
-        )
+        if let text = String(data: data, encoding: .utf16) {
+            return text
+        }
 
-        if let utf8 = String(
-            data: data,
+        if let text = String(data: data, encoding: .unicode) {
+            return text
+        }
+
+        if let text = String(data: data, encoding: .ascii) {
+            return text
+        }
+
+        throw XZQDocumentError.unsupportedEncoding
+    }
+
+    static func writeText(
+        _ text: String,
+        to url: URL
+    ) throws {
+        try text.write(
+            to: url,
+            atomically: true,
             encoding: .utf8
-        ) {
-            return utf8
-        }
-
-        if let gb18030 = String(
-            data: data,
-            encoding: .iso2022JP
-        ) {
-            return gb18030
-        }
-
-        if let unicode = String(
-            data: data,
-            encoding: .unicode
-        ) {
-            return unicode
-        }
-
-        throw XZQDocumentServiceError.invalidTextFile
-    }
-
-    static var textTypes: [UTType] {
-        var result: [UTType] = [
-            .plainText,
-            .text
-        ]
-
-        if let txt = UTType(
-            filenameExtension: "txt"
-        ) {
-            result.append(txt)
-        }
-
-        return result
-    }
-
-    static func suggestedTextName(
-        from url: URL
-    ) -> String {
-        url.deletingPathExtension()
-            .lastPathComponent
+        )
     }
 }
 
-enum XZQDocumentServiceError: LocalizedError {
-    case invalidTextFile
+enum XZQDocumentError: LocalizedError {
+    case unsupportedEncoding
 
     var errorDescription: String? {
         switch self {
-        case .invalidTextFile:
-            return "无法读取该 TXT 文件"
+        case .unsupportedEncoding:
+            return "TXT 文件编码无法识别"
         }
     }
 }
