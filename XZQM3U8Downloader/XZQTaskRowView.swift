@@ -6,8 +6,11 @@ struct XZQTaskRowView: View {
     let task: XZQDownloadTask
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 8) {
+                Image(systemName: iconName)
+                    .foregroundColor(iconColor)
+
                 VStack(alignment: .leading, spacing: 3) {
                     Text(task.name)
                         .font(.headline)
@@ -21,45 +24,35 @@ struct XZQTaskRowView: View {
 
                 Spacer()
 
-                statusIcon
+                Text(task.statusText)
+                    .font(.caption)
+                    .foregroundColor(iconColor)
             }
 
-            ProgressView(value: min(max(task.progress, 0), 1))
+            ProgressView(value: task.progress)
 
             HStack {
-                Text(String(format: "%.1f%%", task.progress * 100))
-                    .fontWeight(.medium)
+                Text("\(Int(task.progress * 100))%")
 
                 Spacer()
 
-                Text(task.statusText)
+                Text(
+                    "\(task.completedSegments)/\(task.totalSegments) 分片"
+                )
 
                 Spacer()
 
                 Text(task.speedText)
             }
-            .font(.caption)
+            .font(.caption2)
             .foregroundColor(.secondary)
 
             HStack {
-                Label(
-                    "\(task.completedSegments)/\(task.totalSegments)",
-                    systemImage: "square.stack.3d.up"
-                )
+                Text("\(task.downloadedBytesText) / \(task.totalBytesText)")
 
                 Spacer()
 
-                if task.totalBytes > 0 {
-                    Text(
-                        "\(XZQFormatHelper.byteString(task.downloadedBytes)) / " +
-                        "\(XZQFormatHelper.byteString(task.totalBytes))"
-                    )
-                } else {
-                    Text(XZQFormatHelper.byteString(task.downloadedBytes))
-                }
-
-                if !task.etaText.isEmpty {
-                    Spacer()
+                if task.etaSeconds != nil {
                     Text("剩余 \(task.etaText)")
                 }
             }
@@ -76,11 +69,11 @@ struct XZQTaskRowView: View {
 
             HStack {
                 switch task.status {
-                case .waiting, .failed, .paused:
+                case .waiting:
                     Button {
                         controller.resume(task.id)
                     } label: {
-                        Label("继续", systemImage: "play.fill")
+                        Label("开始", systemImage: "play.fill")
                     }
 
                 case .downloading:
@@ -90,51 +83,75 @@ struct XZQTaskRowView: View {
                         Label("暂停", systemImage: "pause.fill")
                     }
 
+                case .paused, .failed:
+                    Button {
+                        controller.resume(task.id)
+                    } label: {
+                        Label("继续", systemImage: "play.fill")
+                    }
+
                 case .completed:
                     EmptyView()
                 }
 
+                NavigationLink {
+                    XZQTaskDetailView(taskID: task.id)
+                } label: {
+                    Label("详情", systemImage: "info.circle")
+                }
+
                 Spacer()
 
-                if task.status != .downloading {
-                    Button(role: .destructive) {
-                        controller.remove(task.id)
-                    } label: {
-                        Image(systemName: "trash")
-                    }
+                Button(role: .destructive) {
+                    controller.remove(task.id)
+                } label: {
+                    Image(systemName: "trash")
                 }
             }
-            .font(.caption)
+            .buttonStyle(.bordered)
         }
-        .padding()
+        .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.secondary.opacity(0.08))
+                .fill(Color.secondary.opacity(0.07))
         )
     }
 
-    @ViewBuilder
-    private var statusIcon: some View {
+    private var iconName: String {
         switch task.status {
         case .waiting:
-            Image(systemName: "clock")
-                .foregroundColor(.orange)
+            return "clock"
 
         case .downloading:
-            ProgressView()
-                .progressViewStyle(.circular)
+            return "arrow.down.circle"
 
         case .paused:
-            Image(systemName: "pause.circle.fill")
-                .foregroundColor(.orange)
+            return "pause.circle"
 
         case .completed:
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundColor(.green)
+            return "checkmark.circle.fill"
 
         case .failed:
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(.red)
+            return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var iconColor: Color {
+        switch task.status {
+        case .waiting:
+            return .orange
+
+        case .downloading:
+            return .accentColor
+
+        case .paused:
+            return .orange
+
+        case .completed:
+            return .green
+
+        case .failed:
+            return .red
         }
     }
 }
