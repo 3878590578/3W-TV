@@ -1,113 +1,188 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct XZQContentView: View {
-    @EnvironmentObject private var downloadManager: XZQDownloadManager
+    @EnvironmentObject private var controller: XZQDownloadController
+
     @State private var inputText = ""
+    @State private var showingFileImporter = false
+    @State private var showingSettings = false
+    @State private var showingDeleteConfirm = false
 
     var body: some View {
         NavigationView {
             VStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("M3U8 下载器")
-                        .font(.title2)
-                        .fontWeight(.bold)
+                inputSection
 
-                    Text("每行格式：M3U8地址#视频名称")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                controlSection
 
-                    TextEditor(text: $inputText)
-                        .frame(minHeight: 150)
-                        .padding(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.secondary.opacity(0.25))
-                        )
-                }
-
-                HStack {
-                    Button("添加任务") {
-                        downloadManager.addTasks(from: inputText)
-                        inputText = ""
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    Button("开始下载") {
-                        downloadManager.startAll()
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button("全部暂停") {
-                        downloadManager.pauseAll()
-                    }
-                    .buttonStyle(.bordered)
-                }
-
-                if downloadManager.tasks.isEmpty {
+                if controller.tasks.isEmpty {
                     Spacer()
+
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 42))
+                        .foregroundColor(.secondary)
 
                     Text("暂无下载任务")
                         .foregroundColor(.secondary)
 
+                    Text("每行输入：M3U8地址#视频名称")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
                     Spacer()
                 } else {
-                    ScrollView {
-                        LazyVStack(spacing: 10) {
-                            ForEach(downloadManager.tasks) { task in
-                                XZQTaskRowView(task: task)
-                            }
-                        }
-                    }
+                    taskSection
                 }
             }
             .padding()
             .navigationTitle("XZQ M3U8")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showingSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingSettings) {
+                XZQSettingsView()
+            }
+            .fileImporter(
+                isPresented: $showingFileImporter,
+                allowedContentTypes: [
+                    .plainText,
+                    .text,
+                    UTType(filenameExtension: "txt") ?? .plainText
+                ],
+                allowsMultipleSelection: false
+            ) { result in
+                handleImportedFile(result)
+            }
+            .alert("清空任务", isPresented: $showingDeleteConfirm) {
+                Button("取消", role: .cancel) {}
+
+                Button("清空", role: .destructive) {
+                    controller.removeCompletedTasks()
+                }
+            } message: {
+                Text("仅删除已完成、失败和已暂停的任务。正在下载的任务不会删除。")
+            }
         }
         .navigationViewStyle(.stack)
     }
-}
 
-private struct XZQTaskRowView: View {
-    let task: XZQDownloadTask
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(task.name)
-                .font(.headline)
-                .lineLimit(1)
-
-            ProgressView(value: task.progress)
-
+    private var inputSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(String(format: "%.1f%%", task.progress * 100))
+                Text("下载地址")
+                    .font(.headline)
 
                 Spacer()
 
-                Text(task.statusText)
-
-                Spacer()
-
-                Text(task.speedText)
-            }
-            .font(.caption)
-            .foregroundColor(.secondary)
-
-            HStack {
-                Text("\(task.completedSegments)/\(task.totalSegments) 分片")
-
-                Spacer()
-
-                if !task.etaText.isEmpty {
-                    Text("剩余 \(task.etaText)")
+                Button {
+                    showingFileImporter = true
+                } label: {
+                    Label("导入TXT", systemImage: "doc.text")
+                        .font(.caption)
                 }
+            }
+
+            Text("每行：M3U8地址#视频名称")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            TextEditor(text: $inputText)
+                .frame(minHeight: 145)
+                .padding(6)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.secondary.opacity(0.25))
+                )
+        }
+    }
+
+    private var controlSection: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Button {
+                    controller.addTasks(from: inputText)
+                    inputText = ""
+                } label: {
+                    Label("添加任务", systemImage: "plus")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                Button {
+                    controller.startAll()
+                } label: {
+                    Label("开始", systemImage: "play.fill")
+                }
+                .buttonStyle(.bordered)
+                .disabled(controller.tasks.isEmpty)
+
+                Button {
+                    controller.pauseAll()
+                } label: {
+                    Label("暂停", systemImage: "pause.fill")
+                }
+                .buttonStyle(.bordered)
+                .disabled(controller.tasks.isEmpty)
+            }
+
+            HStack {
+                Text("任务 \(controller.tasks.count)")
+                Spacer()
+                Text("同时下载 \(controller.maxVideos)")
+                Spacer()
+                Text("单视频 \(controller.threadsPerVideo) 分片")
             }
             .font(.caption2)
             .foregroundColor(.secondary)
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.secondary.opacity(0.08))
-        )
+    }
+
+    private var taskSection: some View {
+        ScrollView {
+            LazyVStack(spacing: 10) {
+                ForEach(controller.tasks) { task in
+                    XZQTaskRowView(task: task)
+                }
+
+                Button(role: .destructive) {
+                    showingDeleteConfirm = true
+                } label: {
+                    Text("清理已结束任务")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .padding(.top, 4)
+            }
+        }
+    }
+
+    private func handleImportedFile(
+        _ result: Result<[URL], Error>
+    ) {
+        guard case .success(let urls) = result,
+              let url = urls.first else {
+            return
+        }
+
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessed {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            let text = try String(contentsOf: url, encoding: .utf8)
+            inputText = text
+        } catch {
+            inputText = ""
+        }
     }
 }
