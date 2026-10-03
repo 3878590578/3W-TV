@@ -2,12 +2,12 @@ import SwiftUI
 
 @main
 struct XZQM3U8DownloaderApp: App {
-    @StateObject private var downloadManager = XZQDownloadManager()
+    @StateObject private var downloadController = XZQDownloadController()
 
     var body: some Scene {
         WindowGroup {
             XZQContentView()
-                .environmentObject(downloadManager)
+                .environmentObject(downloadController)
         }
     }
 }
