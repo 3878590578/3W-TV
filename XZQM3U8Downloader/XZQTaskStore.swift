@@ -1,49 +1,75 @@
 import Foundation
+import Combine
 
 @MainActor
 final class XZQTaskStore: ObservableObject {
-
     @Published private(set) var tasks: [XZQDownloadTask] = []
 
+    private let key = "XZQTaskStore.Tasks"
+
     init() {
-        tasks = XZQPersistence.load()
+        load()
     }
 
-    func add(_ task: XZQDownloadTask) {
-        tasks.append(task)
+    func replace(
+        _ tasks: [XZQDownloadTask]
+    ) {
+        self.tasks = tasks
         save()
     }
 
-    func replace(_ task: XZQDownloadTask) {
-        guard let index = tasks.firstIndex(
+    func update(
+        _ task: XZQDownloadTask
+    ) {
+        if let index = tasks.firstIndex(
             where: { $0.id == task.id }
+        ) {
+            tasks[index] = task
+        } else {
+            tasks.append(task)
+        }
+
+        save()
+    }
+
+    func remove(
+        id: UUID
+    ) {
+        tasks.removeAll {
+            $0.id == id
+        }
+
+        save()
+    }
+
+    func load() {
+        guard let data = UserDefaults.standard.data(
+            forKey: key
+        ) else {
+            tasks = []
+            return
+        }
+
+        do {
+            tasks = try JSONDecoder().decode(
+                [XZQDownloadTask].self,
+                from: data
+            )
+        } catch {
+            tasks = []
+        }
+    }
+
+    func save() {
+        guard let data = try? JSONEncoder().encode(
+            tasks
         ) else {
             return
         }
 
-        tasks[index] = task
-        save()
-    }
-
-    func remove(_ task: XZQDownloadTask) {
-        tasks.removeAll {
-            $0.id == task.id
-        }
-
-        save()
-    }
-
-    func clearCompleted() {
-        tasks.removeAll {
-            $0.status == .completed
-        }
-
-        save()
-    }
-
-    func save() {
-        XZQPersistence.save(
-            tasks: tasks
+        UserDefaults.standard.set(
+            data,
+            forKey: key
         )
     }
 }
