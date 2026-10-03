@@ -1,278 +1,388 @@
 import Foundation
-import Combine
+import SwiftUI
 
 @MainActor
 final class XZQDownloadController: ObservableObject {
-
     @Published private(set) var tasks: [XZQDownloadTask] = []
 
-    let maxVideos = 4
-    let threadsPerVideo = 16
-    let retryCount = 5
-
-    private var activeIDs: Set<UUID> = []
-
-    init() {
-        tasks = XZQPersistence.load()
+    @Published var maxVideos: Int {
+        didSet {
+            maxVideos = min(max(maxVideos, 1), 4)
+            saveSettings()
+            startAvailableTasks()
+        }
     }
 
-    func addTasks(
-        from text: String
-    ) {
+    @Published var threadsPerVideo: Int {
+        didSet {
+            threadsPerVideo = min(max(threadsPerVideo, 1), 16)
+            saveSettings()
+        }
+    }
 
-        let parsed =
-            XZQTaskParser.parse(
-                text: text
-            )
+    @Published var retryCount: Int {
+        didSet {
+            retryCount = min(max(retryCount, 0), 10)
+            saveSettings()
+        }
+    }
+
+    private var runningTasks: [UUID: Task<Void, Never>] = [:]
+    private var lastSaveDate = Date.distantPast
+
+    private let taskKey = "XZQDownloadTasks"
+    private let settingsKey = "XZQDownloadSettings"
+
+    init() {
+        let settings = UserDefaults.standard.dictionary(
+            forKey: settingsKey
+        ) as? [String: Int]
+
+        self.maxVideos = min(
+            max(settings?["maxVideos"] ?? 4, 1),
+            4
+        )
+
+        self.threadsPerVideo = min(
+            max(settings?["threadsPerVideo"] ?? 16, 1),
+            16
+        )
+
+        self.retryCount = min(
+            max(settings?["retryCount"] ?? 5, 0),
+            10
+        )
+
+        loadTasks()
+        normalizeTasks()
+    }
+
+    // MARK: - Public
+
+    func addTasks(from text: String) {
+        let parsed = XZQTaskParser.parse(text)
+
+        guard !parsed.isEmpty else {
+            return
+        }
+
+        let existingURLs = Set(tasks.map { $0.url.absoluteString })
 
         for item in parsed {
-
-            let exists = tasks.contains {
-                $0.url == item.url &&
-                $0.name == item.name
-            }
-
-            guard !exists else {
+            if existingURLs.contains(item.url.absoluteString) {
                 continue
             }
 
-            tasks.append(
-                XZQDownloadTask(
-                    url: item.url,
-                    name: item.name
-                )
+            let task = XZQDownloadTask(
+                url: item.url,
+                name: item.name
             )
+
+            tasks.append(task)
         }
 
-        save()
+        saveTasks()
+        startAvailableTasks()
     }
 
     func startAll() {
+        for index in tasks.indices {
+            switch tasks[index].status {
+            case .waiting, .paused, .failed:
+                tasks[index].status = .waiting
+                tasks[index].errorMessage = nil
+
+            case .downloading, .completed:
+                break
+            }
+        }
+
+        saveTasks()
         startAvailableTasks()
     }
 
     func pauseAll() {
-        for index in tasks.indices {
-            if tasks[index].status == .downloading ||
-               tasks[index].status == .waiting {
+        let ids = Array(runningTasks.keys)
 
+        for id in ids {
+            runningTasks[id]?.cancel()
+        }
+
+        for index in tasks.indices {
+            if tasks[index].status == .downloading {
                 tasks[index].status = .paused
             }
         }
 
-        activeIDs.removeAll()
-        save()
+        saveTasks()
     }
 
-    func resumeAll() {
-        for index in tasks.indices {
-            if tasks[index].status == .paused {
-                tasks[index].status = .waiting
+    func pause(_ id: UUID) {
+        runningTasks[id]?.cancel()
+        runningTasks.removeValue(forKey: id)
+
+        if let index = taskIndex(id) {
+            if tasks[index].status == .downloading {
+                tasks[index].status = .paused
             }
         }
 
-        save()
+        saveTasks()
         startAvailableTasks()
     }
 
-    func remove(
-        taskID: UUID
-    ) {
-        tasks.removeAll {
-            $0.id == taskID
+    func resume(_ id: UUID) {
+        guard let index = taskIndex(id) else {
+            return
         }
 
-        save()
+        guard tasks[index].status != .completed else {
+            return
+        }
+
+        tasks[index].status = .waiting
+        tasks[index].errorMessage = nil
+
+        saveTasks()
+        startAvailableTasks()
     }
+
+    func remove(_ id: UUID) {
+        runningTasks[id]?.cancel()
+        runningTasks.removeValue(forKey: id)
+
+        tasks.removeAll {
+            $0.id == id
+        }
+
+        saveTasks()
+    }
+
+    func removeCompletedTasks() {
+        let removableIDs = Set(
+            tasks.filter {
+                $0.status == .completed ||
+                $0.status == .failed ||
+                $0.status == .paused
+            }
+            .map { $0.id }
+        )
+
+        for id in removableIDs {
+            runningTasks[id]?.cancel()
+            runningTasks.removeValue(forKey: id)
+        }
+
+        tasks.removeAll {
+            removableIDs.contains($0.id)
+        }
+
+        saveTasks()
+    }
+
+    func resetSettings() {
+        maxVideos = 4
+        threadsPerVideo = 16
+        retryCount = 5
+    }
+
+    // MARK: - Scheduler
 
     private func startAvailableTasks() {
+        guard !tasks.isEmpty else {
+            return
+        }
 
-        while activeIDs.count < maxVideos {
+        let availableSlots = maxVideos - runningTasks.count
 
-            guard let index = tasks.firstIndex(
-                where: {
-                    $0.status == .waiting
-                }
-            ) else {
-                break
-            }
+        guard availableSlots > 0 else {
+            return
+        }
 
-            let task = tasks[index]
+        let waitingIDs = tasks
+            .filter { $0.status == .waiting }
+            .prefix(availableSlots)
+            .map { $0.id }
 
-            activeIDs.insert(
-                task.id
-            )
-
-            tasks[index].status = .downloading
-
-            save()
-
-            Task { [weak self] in
-                await self?.execute(
-                    taskID: task.id
-                )
-            }
+        for id in waitingIDs {
+            startTask(id)
         }
     }
 
-    private func execute(
-        taskID: UUID
-    ) async {
+    private func startTask(_ id: UUID) {
+        guard runningTasks[id] == nil else {
+            return
+        }
 
-        guard let task = task(
-            id: taskID
+        guard let index = taskIndex(id) else {
+            return
+        }
+
+        guard tasks[index].status != .completed else {
+            return
+        }
+
+        tasks[index].status = .downloading
+        tasks[index].errorMessage = nil
+
+        let engine = XZQVideoEngine(
+            threads: threadsPerVideo,
+            retryCount: retryCount
+        )
+
+        runningTasks[id] = Task { [weak self] in
+            await engine.run(
+                task: self?.taskSnapshot(id) ?? nil
+            ) { progress in
+                Task { @MainActor [weak self] in
+                    self?.updateProgress(
+                        id: id,
+                        progress: progress
+                    )
+                }
+            } onFinished: { result in
+                Task { @MainActor [weak self] in
+                    self?.finishTask(
+                        id: id,
+                        result: result
+                    )
+                }
+            }
+        }
+
+        saveTasks()
+    }
+
+    private func taskSnapshot(
+        _ id: UUID
+    ) -> XZQDownloadTask? {
+        guard let index = taskIndex(id) else {
+            return nil
+        }
+
+        return tasks[index]
+    }
+
+    private func updateProgress(
+        id: UUID,
+        progress: XZQVideoProgress
+    ) {
+        guard let index = taskIndex(id) else {
+            return
+        }
+
+        tasks[index].progress = progress.progress
+        tasks[index].totalSegments = progress.totalSegments
+        tasks[index].completedSegments = progress.completedSegments
+        tasks[index].downloadedBytes = progress.downloadedBytes
+        tasks[index].totalBytes = progress.totalBytes
+        tasks[index].speedBytesPerSecond = progress.speedBytesPerSecond
+
+        if progress.progress >= 1 {
+            tasks[index].progress = 1
+        }
+
+        throttledSave()
+    }
+
+    private func finishTask(
+        id: UUID,
+        result: Result<URL, Error>
+    ) {
+        runningTasks.removeValue(forKey: id)
+
+        guard let index = taskIndex(id) else {
+            startAvailableTasks()
+            return
+        }
+
+        switch result {
+        case .success(let outputURL):
+            tasks[index].status = .completed
+            tasks[index].progress = 1
+            tasks[index].errorMessage = nil
+            tasks[index].outputDirectory =
+                outputURL.deletingLastPathComponent()
+
+        case .failure(let error):
+            if Task.isCancelled {
+                tasks[index].status = .paused
+            } else {
+                tasks[index].status = .failed
+                tasks[index].errorMessage = error.localizedDescription
+            }
+        }
+
+        saveTasks()
+        startAvailableTasks()
+    }
+
+    // MARK: - Persistence
+
+    private func loadTasks() {
+        guard let data = UserDefaults.standard.data(
+            forKey: taskKey
         ) else {
-            activeIDs.remove(taskID)
             return
         }
 
         do {
-
-            let workingDirectory =
-                try XZQFileHelper.createWorkingDirectory(
-                    taskID: task.id
-                )
-
-            let engine = XZQVideoEngine(
-                threads: threadsPerVideo,
-                retryCount: retryCount
+            tasks = try JSONDecoder().decode(
+                [XZQDownloadTask].self,
+                from: data
             )
-
-            let outputURL =
-                try await engine.run(
-                    task: task,
-                    workingDirectory: workingDirectory
-                ) { [weak self] completed,
-                    total,
-                    bytes,
-                    progress,
-                    eta in
-
-                    guard let self else {
-                        return
-                    }
-
-                    self.updateProgress(
-                        taskID: taskID,
-                        completed: completed,
-                        total: total,
-                        bytes: bytes,
-                        progress: progress,
-                        eta: eta
-                    )
-                }
-
-            updateStatus(
-                taskID: taskID,
-                status: .completed
-            )
-
-            updateOutput(
-                taskID: taskID,
-                url: outputURL
-            )
-
-        } catch is CancellationError {
-
-            updateStatus(
-                taskID: taskID,
-                status: .paused
-            )
-
         } catch {
-
-            updateError(
-                taskID: taskID,
-                message: error.localizedDescription
-            )
+            tasks = []
         }
-
-        activeIDs.remove(taskID)
-
-        save()
-
-        startAvailableTasks()
     }
 
-    private func task(
-        id: UUID
-    ) -> XZQDownloadTask? {
-        tasks.first {
+    private func normalizeTasks() {
+        var changed = false
+
+        for index in tasks.indices {
+            if tasks[index].status == .downloading {
+                tasks[index].status = .waiting
+                changed = true
+            }
+        }
+
+        if changed {
+            saveTasks()
+        }
+    }
+
+    private func saveTasks() {
+        do {
+            let data = try JSONEncoder().encode(tasks)
+            UserDefaults.standard.set(data, forKey: taskKey)
+            lastSaveDate = Date()
+        } catch {
+            // Persistence failure should not stop active downloads.
+        }
+    }
+
+    private func throttledSave() {
+        if Date().timeIntervalSince(lastSaveDate) >= 1.0 {
+            saveTasks()
+        }
+    }
+
+    private func saveSettings() {
+        UserDefaults.standard.set(
+            [
+                "maxVideos": maxVideos,
+                "threadsPerVideo": threadsPerVideo,
+                "retryCount": retryCount
+            ],
+            forKey: settingsKey
+        )
+    }
+
+    private func taskIndex(
+        _ id: UUID
+    ) -> Int? {
+        tasks.firstIndex {
             $0.id == id
         }
-    }
-
-    private func updateProgress(
-        taskID: UUID,
-        completed: Int,
-        total: Int,
-        bytes: Int64,
-        progress: Double,
-        eta: Double?
-    ) {
-
-        guard let index = tasks.firstIndex(
-            where: { $0.id == taskID }
-        ) else {
-            return
-        }
-
-        tasks[index].completedSegments = completed
-        tasks[index].totalSegments = total
-        tasks[index].downloadedBytes = bytes
-        tasks[index].progress = progress
-        tasks[index].etaSeconds = eta
-
-        save()
-    }
-
-    private func updateStatus(
-        taskID: UUID,
-        status: XZQDownloadStatus
-    ) {
-
-        guard let index = tasks.firstIndex(
-            where: { $0.id == taskID }
-        ) else {
-            return
-        }
-
-        tasks[index].status = status
-    }
-
-    private func updateError(
-        taskID: UUID,
-        message: String
-    ) {
-
-        guard let index = tasks.firstIndex(
-            where: { $0.id == taskID }
-        ) else {
-            return
-        }
-
-        tasks[index].status = .failed
-        tasks[index].errorMessage = message
-    }
-
-    private func updateOutput(
-        taskID: UUID,
-        url: URL
-    ) {
-
-        guard let index = tasks.firstIndex(
-            where: { $0.id == taskID }
-        ) else {
-            return
-        }
-
-        tasks[index].outputDirectory =
-            url.deletingLastPathComponent().path
-    }
-
-    private func save() {
-        XZQPersistence.save(
-            tasks: tasks
-        )
     }
 }
