@@ -117,7 +117,6 @@
 103.47.186.75:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
 103.47.186.130:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
 103.53.80.84:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
-103.53.80.239:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
 103.201.130.126:443#JP Tokyo AS3258 xTom Japan Corporation
 109.107.140.90:443#JP Tokyo AS3258 xTom
 149.62.44.41:443#JP Tokyo AS3258 xTom Japan Corporation
