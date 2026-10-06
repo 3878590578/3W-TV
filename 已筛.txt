@@ -96,7 +96,6 @@
 149.28.148.20:443#SG Singapore AS20473 The Constant Company, LLC
 149.28.150.141:443#SG Singapore AS20473 The Constant Company, LLC
 149.28.150.210:443#SG Singapore AS20473 The Constant Company, LLC
-149.28.153.207:443#SG Singapore AS20473 Vultr Holdings, LLC
 149.28.154.5:443#SG Singapore AS20473 Vultr Holdings, LLC
 149.28.159.87:443#SG Singapore AS20473 The Constant Company, LLC
 207.148.70.252:443#SG Singapore AS20473 The Constant Company, LLC
@@ -113,14 +112,12 @@
 45.142.127.24:443#JP Tokyo AS3258 xTom Japan Corporation
 45.143.235.120:443#JP Tokyo AS3258 xTom Japan Corporation
 45.153.247.195:443#JP Tokyo AS3258 xTom Japan Corporation
-91.200.243.225:443#JP Tokyo AS3258 xTom Japan Corporation
 103.47.186.75:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
 103.47.186.130:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
 103.53.80.84:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
 103.201.130.126:443#JP Tokyo AS3258 xTom Japan Corporation
 109.107.140.90:443#JP Tokyo AS3258 xTom
 149.62.44.41:443#JP Tokyo AS3258 xTom Japan Corporation
-185.200.64.148:443#JP Tokyo AS3258 xTom Japan Corporation
 195.245.242.188:443#JP Tokyo AS3258 xTom Japan Corporation
 45.59.186.102:443#US Los Angeles AS906 DMIT Cloud Services
 45.59.187.125:443#US Los Angeles AS906 DMIT Cloud Services
