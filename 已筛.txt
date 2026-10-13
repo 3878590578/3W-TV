@@ -35,7 +35,6 @@
 47.128.158.36:443#SG Singapore AS16509 Amazon.com, Inc.
 47.129.4.128:443#SG Singapore AS16509 Amazon.com, Inc.
 47.129.198.52:443#SG Singapore AS16509 Amazon.com, Inc.
-47.131.22.90:443#SG Singapore AS16509 Amazon Data Services Singapore
 47.131.104.124:443#SG Singapore AS16509 Amazon.com, Inc.
 47.131.106.251:443#SG Singapore AS16509 Amazon.com, Inc.
 47.131.155.232:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -58,7 +57,6 @@
 45.32.100.162:443#SG Singapore AS20473 Vultr Holdings, LLC
 45.32.109.225:443#SG Singapore AS20473 The Constant Company, LLC
 45.32.121.27:443#SG Singapore AS20473 The Constant Company, LLC
-45.32.123.57:443#SG Singapore AS20473 Vultr Holdings, LLC
 45.32.124.17:443#SG Singapore AS20473 Vultr Holdings, LLC
 45.76.158.46:443#SG Singapore AS20473 The Constant Company, LLC
 45.76.158.173:443#SG Singapore AS20473 The Constant Company, LLC
@@ -92,19 +90,16 @@
 149.28.154.5:443#SG Singapore AS20473 Vultr Holdings, LLC
 149.28.159.87:443#SG Singapore AS20473 The Constant Company, LLC
 207.148.70.252:443#SG Singapore AS20473 The Constant Company, LLC
-207.148.71.119:443#SG Singapore AS20473 Vultr Holdings, LLC
 207.148.73.18:443#SG Singapore AS20473 The Constant Company, LLC
 207.148.79.171:443#SG Singapore AS20473 The Constant Company, LLC
 207.148.120.87:443#SG Singapore AS20473 The Constant Company, LLC
 207.148.123.149:443#SG Singapore AS20473 The Constant Company, LLC
 36.50.85.6:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd
 45.94.40.102:443#JP Tokyo AS3258 xTom Japan Corporation
-45.128.210.34:443#JP Tokyo AS3258 xTom Japan Corporation
 45.142.125.14:443#JP Tokyo AS3258 xTom Japan Corporation
 45.142.127.24:443#JP Tokyo AS3258 xTom Japan Corporation
 45.143.235.120:443#JP Tokyo AS3258 xTom Japan Corporation
 103.47.186.75:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
-103.53.80.84:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
 103.201.130.126:443#JP Tokyo AS3258 xTom Japan Corporation
 109.107.140.90:443#JP Tokyo AS3258 xTom
 149.62.44.41:443#JP Tokyo AS3258 xTom Japan Corporation
