@@ -68,7 +68,6 @@
 45.77.173.72:443#SG Singapore AS20473 The Constant Company, LLC
 45.77.240.140:443#SG Singapore AS20473 Vultr Holdings, LLC
 45.77.243.191:443#SG Singapore AS20473 The Constant Company, LLC
-45.77.254.160:443#SG Singapore AS20473 The Constant Company, LLC
 66.42.54.67:443#SG Singapore AS20473 The Constant Company, LLC
 66.42.61.215:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.135.10:443#SG Singapore AS20473 The Constant Company, LLC
@@ -96,7 +95,6 @@
 207.148.123.149:443#SG Singapore AS20473 The Constant Company, LLC
 36.50.85.6:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd
 45.94.40.102:443#JP Tokyo AS3258 xTom Japan Corporation
-45.142.125.14:443#JP Tokyo AS3258 xTom Japan Corporation
 45.142.127.24:443#JP Tokyo AS3258 xTom Japan Corporation
 45.143.235.120:443#JP Tokyo AS3258 xTom Japan Corporation
 103.47.186.75:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
