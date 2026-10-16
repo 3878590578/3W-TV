@@ -3,12 +3,9 @@
 3.1.187.169:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.31.121:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.33.11:443#SG Singapore AS16509 Amazon.com, Inc.
-13.212.33.99:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.102.10:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.126.228:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.207.124:443#SG Singapore AS16509 Amazon.com, Inc.
-13.212.210.118:443#SG Singapore AS16509 Amazon.com, Inc.
-13.213.38.199:443#SG Singapore AS16509 Amazon.com, Inc.
 13.213.232.214:443#SG Singapore AS16509 Amazon.com, Inc.
 13.215.95.201:443#SG Singapore AS16509 Amazon.com, Inc.
 13.215.182.29:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -19,14 +16,12 @@
 13.250.78.140:443#SG Singapore AS16509 Amazon.com, Inc.
 13.250.129.244:443#SG Singapore AS16509 Amazon.com, Inc.
 13.251.248.21:443#SG Singapore AS16509 Amazon.com, Inc.
-18.136.57.18:443#SG Singapore AS16509 Amazon.com, Inc.
 18.136.76.91:443#SG Singapore AS16509 Amazon.com, Inc.
 18.136.135.61:443#SG Singapore AS16509 Amazon.com, Inc.
 18.136.144.144:443#SG Singapore AS16509 Amazon.com, Inc.
 18.138.10.11:443#SG Singapore AS16509 Amazon.com, Inc.
 18.138.34.221:443#SG Singapore AS16509 Amazon.com, Inc.
 18.138.206.30:443#SG Singapore AS16509 Amazon.com, Inc.
-18.139.160.115:443#SG Singapore AS16509 Amazon.com, Inc.
 18.140.95.218:443#SG Singapore AS16509 Amazon.com, Inc.
 18.141.208.166:443#SG Singapore AS16509 Amazon.com, Inc.
 18.142.4.29:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -49,7 +44,6 @@
 54.169.162.186:443#SG Singapore AS16509 Amazon.com, Inc.
 54.179.212.2:443#SG Singapore AS16509 Amazon.com, Inc.
 54.254.42.64:443#SG Singapore AS16509 Amazon.com, Inc.
-54.254.60.182:443#SG Singapore AS16509 Amazon.com, Inc.
 54.255.75.247:443#SG Singapore AS16509 Amazon.com, Inc.
 56.10.33.77:443#SG Singapore AS16509 Amazon.com, Inc.
 56.10.67.92:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -92,12 +86,9 @@
 207.148.79.171:443#SG Singapore AS20473 The Constant Company, LLC
 207.148.120.87:443#SG Singapore AS20473 The Constant Company, LLC
 207.148.123.149:443#SG Singapore AS20473 The Constant Company, LLC
-36.50.85.6:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd
 45.94.40.102:443#JP Tokyo AS3258 xTom Japan Corporation
-45.142.127.24:443#JP Tokyo AS3258 xTom Japan Corporation
 45.143.235.120:443#JP Tokyo AS3258 xTom Japan Corporation
 103.47.186.75:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
-103.201.130.126:443#JP Tokyo AS3258 xTom Japan Corporation
 109.107.140.90:443#JP Tokyo AS3258 xTom
 149.62.44.41:443#JP Tokyo AS3258 xTom Japan Corporation
 45.59.186.102:443#US Los Angeles AS906 DMIT Cloud Services
@@ -107,7 +98,6 @@
 64.186.245.27:443#US Los Angeles AS906 DMIT Cloud Services
 69.63.222.24:443#US Los Angeles AS906 DMIT Cloud Services
 154.17.26.99:443#US Los Angeles AS906 DMIT Cloud Services
-154.21.82.24:443#US Los Angeles AS906 Private Customer
 154.21.89.121:443#US Los Angeles AS906 DMIT Cloud Services
 154.26.189.91:443#US Los Angeles AS906 DMIT Cloud Services
 174.136.205.28:443#US Los Angeles AS906 DMIT Cloud Services
