@@ -2,11 +2,9 @@
 139.180.159.58:443#SG Singapore AS13335 Cloudflare London, LLC
 3.1.187.169:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.31.121:443#SG Singapore AS16509 Amazon.com, Inc.
-13.212.33.11:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.102.10:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.126.228:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.207.124:443#SG Singapore AS16509 Amazon.com, Inc.
-13.213.232.214:443#SG Singapore AS16509 Amazon.com, Inc.
 13.215.95.201:443#SG Singapore AS16509 Amazon.com, Inc.
 13.215.182.29:443#SG Singapore AS16509 Amazon.com, Inc.
 13.215.195.63:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -45,7 +43,6 @@
 56.10.33.77:443#SG Singapore AS16509 Amazon.com, Inc.
 56.10.67.92:443#SG Singapore AS16509 Amazon.com, Inc.
 122.248.238.214:443#SG Singapore AS16509 Amazon.com, Inc.
-45.32.100.162:443#SG Singapore AS20473 Vultr Holdings, LLC
 45.32.109.225:443#SG Singapore AS20473 The Constant Company, LLC
 45.32.121.27:443#SG Singapore AS20473 The Constant Company, LLC
 45.76.158.46:443#SG Singapore AS20473 The Constant Company, LLC
@@ -57,7 +54,6 @@
 45.77.36.140:443#SG Singapore AS20473 Vultr Holdings, LLC
 45.77.173.72:443#SG Singapore AS20473 The Constant Company, LLC
 45.77.240.140:443#SG Singapore AS20473 Vultr Holdings, LLC
-66.42.54.67:443#SG Singapore AS20473 The Constant Company, LLC
 66.42.61.215:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.135.10:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.137.157:443#SG Singapore AS20473 Vultr Holdings, LLC
@@ -86,7 +82,6 @@
 45.143.235.120:443#JP Tokyo AS3258 xTom Japan Corporation
 103.47.186.75:443#JP Tokyo AS3258 Hostsymbol Pte. Ltd.
 109.107.140.90:443#JP Tokyo AS3258 xTom
-149.62.44.41:443#JP Tokyo AS3258 xTom Japan Corporation
 45.59.186.102:443#US Los Angeles AS906 DMIT Cloud Services
 45.59.187.125:443#US Los Angeles AS906 DMIT Cloud Services
 64.186.227.15:443#US Los Angeles AS906 DMIT Cloud Services
@@ -105,8 +100,6 @@
 52.66.200.252:443#IN Mumbai AS16509 Amazon.com, Inc.
 65.2.215.47:443#IN Mumbai AS16509 Amazon.com, Inc.
 170.187.237.10:443#IN Mumbai AS63949 Akamai Connected Cloud / Linode
-170.187.237.195:443#IN Mumbai AS63949 Akamai Connected Cloud / Linode
-170.187.237.198:443#IN Mumbai AS63949 Akamai Connected Cloud / Linode
 172.104.206.25:443#IN Mumbai AS63949 Akamai Connected Cloud / Linode
 172.105.50.77:443#IN Mumbai AS63949 Akamai Connected Cloud / Linode
 172.105.52.59:443#IN Mumbai AS63949 Akamai Connected Cloud / Linode
