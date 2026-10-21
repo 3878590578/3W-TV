@@ -1,5 +1,4 @@
 154.3.39.40:443#HK Kwai Chung AS906 DMIT Cloud Service - Los Angeles
-139.180.159.58:443#SG Singapore AS13335 Cloudflare London, LLC
 3.1.187.169:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.31.121:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.102.10:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -11,13 +10,11 @@
 13.215.229.246:443#SG Singapore AS16509 Amazon.com, Inc.
 13.228.2.85:443#SG Singapore AS16509 Amazon.com, Inc.
 13.250.17.35:443#SG Singapore AS16509 Amazon.com, Inc.
-13.250.78.140:443#SG Singapore AS16509 Amazon.com, Inc.
 13.250.129.244:443#SG Singapore AS16509 Amazon.com, Inc.
 13.251.248.21:443#SG Singapore AS16509 Amazon.com, Inc.
 18.136.76.91:443#SG Singapore AS16509 Amazon.com, Inc.
 18.136.135.61:443#SG Singapore AS16509 Amazon.com, Inc.
 18.136.144.144:443#SG Singapore AS16509 Amazon.com, Inc.
-18.138.10.11:443#SG Singapore AS16509 Amazon.com, Inc.
 18.138.34.221:443#SG Singapore AS16509 Amazon.com, Inc.
 18.138.206.30:443#SG Singapore AS16509 Amazon.com, Inc.
 18.141.208.166:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -40,7 +37,6 @@
 54.169.162.186:443#SG Singapore AS16509 Amazon.com, Inc.
 54.254.42.64:443#SG Singapore AS16509 Amazon.com, Inc.
 54.255.75.247:443#SG Singapore AS16509 Amazon.com, Inc.
-56.10.33.77:443#SG Singapore AS16509 Amazon.com, Inc.
 56.10.67.92:443#SG Singapore AS16509 Amazon.com, Inc.
 122.248.238.214:443#SG Singapore AS16509 Amazon.com, Inc.
 45.32.109.225:443#SG Singapore AS20473 The Constant Company, LLC
@@ -61,6 +57,7 @@
 139.180.145.3:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.152.37:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.154.75:443#SG Singapore AS20473 The Constant Company, LLC
+139.180.159.58:443#SG Singapore AS20473 SGP_VULTR_CUST
 139.180.187.152:443#SG Singapore AS20473 Vultr Holdings, LLC
 139.180.220.7:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.220.87:443#SG Singapore AS20473 The Constant Company, LLC
