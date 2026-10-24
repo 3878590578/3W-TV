@@ -1,13 +1,12 @@
 154.3.39.40:443#HK Kwai Chung AS906 DMIT Cloud Service - Los Angeles
+139.180.159.58:443#SG Singapore AS13335 Cloudflare London, LLC
 3.1.187.169:443#SG Singapore AS16509 Amazon.com, Inc.
-13.212.31.121:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.102.10:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.126.228:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.207.124:443#SG Singapore AS16509 Amazon.com, Inc.
 13.215.95.201:443#SG Singapore AS16509 Amazon.com, Inc.
 13.215.182.29:443#SG Singapore AS16509 Amazon.com, Inc.
 13.215.229.246:443#SG Singapore AS16509 Amazon.com, Inc.
-13.228.2.85:443#SG Singapore AS16509 Amazon.com, Inc.
 13.250.17.35:443#SG Singapore AS16509 Amazon.com, Inc.
 13.250.129.244:443#SG Singapore AS16509 Amazon.com, Inc.
 13.251.248.21:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -22,7 +21,6 @@
 46.137.229.208:443#SG Singapore AS16509 Amazon.com, Inc.
 47.128.158.36:443#SG Singapore AS16509 Amazon.com, Inc.
 47.129.4.128:443#SG Singapore AS16509 Amazon.com, Inc.
-47.129.198.52:443#SG Singapore AS16509 Amazon.com, Inc.
 47.131.104.124:443#SG Singapore AS16509 Amazon.com, Inc.
 47.131.106.251:443#SG Singapore AS16509 Amazon.com, Inc.
 47.131.155.232:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -49,12 +47,10 @@
 45.77.240.140:443#SG Singapore AS20473 Vultr Holdings, LLC
 66.42.61.215:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.135.10:443#SG Singapore AS20473 The Constant Company, LLC
-139.180.137.157:443#SG Singapore AS20473 Vultr Holdings, LLC
 139.180.144.145:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.145.3:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.152.37:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.154.75:443#SG Singapore AS20473 The Constant Company, LLC
-139.180.159.58:443#SG Singapore AS20473 SGP_VULTR_CUST
 139.180.187.152:443#SG Singapore AS20473 Vultr Holdings, LLC
 139.180.220.7:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.220.87:443#SG Singapore AS20473 The Constant Company, LLC
@@ -67,7 +63,6 @@
 149.28.150.210:443#SG Singapore AS20473 The Constant Company, LLC
 149.28.154.5:443#SG Singapore AS20473 Vultr Holdings, LLC
 149.28.159.87:443#SG Singapore AS20473 The Constant Company, LLC
-207.148.70.252:443#SG Singapore AS20473 The Constant Company, LLC
 207.148.73.18:443#SG Singapore AS20473 The Constant Company, LLC
 207.148.79.171:443#SG Singapore AS20473 The Constant Company, LLC
 207.148.120.87:443#SG Singapore AS20473 The Constant Company, LLC
