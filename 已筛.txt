@@ -14,7 +14,6 @@
 18.136.135.61:443#SG Singapore AS16509 Amazon.com, Inc.
 18.136.144.144:443#SG Singapore AS16509 Amazon.com, Inc.
 18.138.34.221:443#SG Singapore AS16509 Amazon.com, Inc.
-18.138.206.30:443#SG Singapore AS16509 Amazon.com, Inc.
 18.141.208.166:443#SG Singapore AS16509 Amazon.com, Inc.
 18.142.4.29:443#SG Singapore AS16509 Amazon.com, Inc.
 18.143.168.219:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -32,7 +31,6 @@
 54.151.178.12:443#SG Singapore AS16509 Amazon.com, Inc.
 54.169.162.186:443#SG Singapore AS16509 Amazon.com, Inc.
 54.254.42.64:443#SG Singapore AS16509 Amazon.com, Inc.
-54.255.75.247:443#SG Singapore AS16509 Amazon.com, Inc.
 56.10.67.92:443#SG Singapore AS16509 Amazon.com, Inc.
 122.248.238.214:443#SG Singapore AS16509 Amazon.com, Inc.
 45.32.109.225:443#SG Singapore AS20473 The Constant Company, LLC
@@ -43,7 +41,6 @@
 45.76.189.166:443#SG Singapore AS20473 The Constant Company, LLC
 45.77.32.75:443#SG Singapore AS20473 Vultr Holdings, LLC
 45.77.36.140:443#SG Singapore AS20473 Vultr Holdings, LLC
-45.77.173.72:443#SG Singapore AS20473 The Constant Company, LLC
 45.77.240.140:443#SG Singapore AS20473 Vultr Holdings, LLC
 66.42.61.215:443#SG Singapore AS20473 The Constant Company, LLC
 139.180.135.10:443#SG Singapore AS20473 The Constant Company, LLC
