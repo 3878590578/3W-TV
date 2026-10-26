@@ -7,7 +7,7 @@
 13.215.95.201:443#SG Singapore AS16509 Amazon.com, Inc.
 13.215.182.29:443#SG Singapore AS16509 Amazon.com, Inc.
 13.215.229.246:443#SG Singapore AS16509 Amazon.com, Inc.
-13.250.17.35:443#SG Singapore AS16509 Amazon.com, Inc.
+13.250.17.35:443#SG Singapore AS16509 Amazon Data Services Singapore
 13.250.129.244:443#SG Singapore AS16509 Amazon.com, Inc.
 13.251.248.21:443#SG Singapore AS16509 Amazon.com, Inc.
 18.136.76.91:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -24,7 +24,6 @@
 47.131.106.251:443#SG Singapore AS16509 Amazon.com, Inc.
 47.131.155.232:443#SG Singapore AS16509 Amazon.com, Inc.
 47.131.186.184:443#SG Singapore AS16509 Amazon.com, Inc.
-47.131.189.221:443#SG Singapore AS16509 Amazon.com, Inc.
 52.220.183.112:443#SG Singapore AS16509 Amazon.com, Inc.
 52.221.53.171:443#SG Singapore AS16509 Amazon.com, Inc.
 54.151.143.36:443#SG Singapore AS16509 Amazon.com, Inc.
@@ -68,7 +67,6 @@
 109.107.140.90:443#JP Tokyo AS3258 xTom
 45.59.186.102:443#US Los Angeles AS906 DMIT Cloud Services
 45.59.187.125:443#US Los Angeles AS906 DMIT Cloud Services
-64.186.227.15:443#US Los Angeles AS906 DMIT Cloud Services
 64.186.241.132:443#US Los Angeles AS906 Private Customer
 69.63.222.24:443#US Los Angeles AS906 DMIT Cloud Services
 154.21.89.121:443#US Los Angeles AS906 DMIT Cloud Services
