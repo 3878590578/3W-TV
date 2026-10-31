@@ -1,5 +1,4 @@
 154.3.39.40:443#HK Kwai Chung AS906 DMIT Cloud Service - Los Angeles
-139.180.159.58:443#SG Singapore AS13335 Cloudflare London, LLC
 3.1.187.169:443#SG Singapore AS16509 Amazon.com, Inc.
 13.212.207.124:443#SG Singapore AS16509 Amazon.com, Inc.
 13.215.182.29:443#SG Singapore AS16509 Amazon.com, Inc.
