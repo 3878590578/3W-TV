@@ -18,7 +18,6 @@
 54.151.178.12:443#SG Singapore AS16509 Amazon.com, Inc.
 54.169.162.186:443#SG Singapore AS16509 Amazon.com, Inc.
 122.248.238.214:443#SG Singapore AS16509 Amazon.com, Inc.
-45.32.109.225:443#SG Singapore AS20473 The Constant Company, LLC
 45.76.158.46:443#SG Singapore AS20473 The Constant Company, LLC
 45.76.158.173:443#SG Singapore AS20473 The Constant Company, LLC
 45.76.178.112:443#SG Singapore AS20473 The Constant Company, LLC
@@ -48,7 +47,6 @@
 109.107.140.90:443#JP Tokyo AS3258 xTom
 45.59.186.102:443#US Los Angeles AS906 DMIT Cloud Services
 45.59.187.125:443#US Los Angeles AS906 DMIT Cloud Services
-69.63.222.24:443#US Los Angeles AS906 DMIT Cloud Services
 174.136.205.28:443#US Los Angeles AS906 DMIT Cloud Services
 216.234.141.64:443#US Los Angeles AS906 DMIT Cloud Services
 216.234.141.92:443#US Los Angeles AS906 DMIT Cloud Services
