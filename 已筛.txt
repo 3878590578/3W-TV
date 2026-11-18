@@ -10,7 +10,6 @@
 18.143.168.219:443#SG Singapore AS16509 Amazon.com, Inc.
 46.137.229.208:443#SG Singapore AS16509 Amazon.com, Inc.
 47.129.4.128:443#SG Singapore AS16509 Amazon.com, Inc.
-47.131.104.124:443#SG Singapore AS16509 Amazon.com, Inc.
 47.131.106.251:443#SG Singapore AS16509 Amazon.com, Inc.
 47.131.155.232:443#SG Singapore AS16509 Amazon.com, Inc.
 52.220.183.112:443#SG Singapore AS16509 Amazon.com, Inc.
