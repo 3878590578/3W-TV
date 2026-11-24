@@ -35,7 +35,6 @@
 149.28.140.125:443#SG Singapore AS20473 The Constant Company, LLC
 149.28.148.20:443#SG Singapore AS20473 The Constant Company, LLC
 149.28.150.210:443#SG Singapore AS20473 The Constant Company, LLC
-149.28.154.5:443#SG Singapore AS20473 Vultr Holdings, LLC
 207.148.73.18:443#SG Singapore AS20473 The Constant Company, LLC
 207.148.79.171:443#SG Singapore AS20473 The Constant Company, LLC
 207.148.120.87:443#SG Singapore AS20473 The Constant Company, LLC
