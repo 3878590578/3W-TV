@@ -14,7 +14,6 @@
 54.151.178.12:443#SG Singapore AS16509 Amazon.com, Inc.
 54.169.162.186:443#SG Singapore AS16509 Amazon.com, Inc.
 122.248.238.214:443#SG Singapore AS16509 Amazon.com, Inc.
-45.76.158.46:443#SG Singapore AS20473 The Constant Company, LLC
 45.76.158.173:443#SG Singapore AS20473 The Constant Company, LLC
 45.76.178.112:443#SG Singapore AS20473 The Constant Company, LLC
 45.76.187.126:443#SG Singapore AS20473 The Constant Company, LLC
